@@ -1,0 +1,48 @@
+Patch: guard smalot/pdfparser against malformed ToUnicode CMap ranges
+=====================================================================
+
+Applies to: smalot/pdfparser v2.12.5
+File:       src/Smalot/PdfParser/Font.php  (method loadTranslateTable, bfrange offset branch)
+
+WHY
+---
+Some PDFs contain a malformed ToUnicode CMap that declares an absurd source
+range in a `bfrange` block, e.g. `<0000> <FFFFFFFF> <0000>`. smalot iterates
+the entire range building a per-code translation table, which allocates
+multiple gigabytes and triggers an *uncatchable* PHP memory-exhaustion fatal
+(`Allowed memory size ... exhausted @ .../Font.php:240`). Because it is a fatal,
+try/catch in DocForge's PdfParser cannot recover from it, so the whole worker
+dies and the job fails.
+
+Example trigger: docs/Perera-2021-Applications_of_reinforcement_learning...pdf
+Before patch: >1.4 GB and fatal.  After patch: ~68 MB peak, 21k+ words extracted.
+
+FIX
+---
+Clamp the bfrange source span to a sane maximum (0xFFFF). A legitimate bfrange
+stays within a single codespace, so anything wider is malformed and can be
+truncated rather than crashing.
+
+`vendor/` is git-ignored and deployed to the host via FTP, so this patch is
+applied directly to the deployed file. Re-apply it after any `composer install`
+or `composer update` that rewrites Font.php.
+
+DIFF
+----
+@@ loadTranslateTable(), bfrange "offset" branch @@
+                         if (1 === preg_match('/^<(?P<offset>[0-9A-F]+)>$/i', $dest, $offset_matches)) {
+                             // Support for : <srcCode1> <srcCode2> <dstString>
+                             $offset = hexdec($offset_matches['offset']);
+
+-                            for ($char = $char_from; $char <= $char_to; ++$char) {
++                            // DocForge guard: clamp absurd/malformed source ranges
++                            // (e.g. <0000><FFFFFFFF>) that would build a multi-GB
++                            // table and trigger an uncatchable memory fatal.
++                            $char_to_capped = $char_to;
++                            if ($char_to_capped - $char_from > 0xFFFF) {
++                                $char_to_capped = $char_from + 0xFFFF;
++                            }
++
++                            for ($char = $char_from; $char <= $char_to_capped; ++$char) {
+                                 $this->table[$char] = self::uchr($char - $char_from + $offset);
+                             }
