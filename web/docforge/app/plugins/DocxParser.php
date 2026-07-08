@@ -56,7 +56,21 @@ class DocxParser extends AbstractParser
         foreach ($elements as $element) {
             // Tables: descend into every cell and keep collecting content.
             if ($element instanceof \PhpOffice\PhpWord\Element\Table) {
-                foreach ($element->getRows() as $row) {
+                $rows = $element->getRows();
+                $maxCols = 0;
+                foreach ($rows as $row) {
+                    $maxCols = max($maxCols, count($row->getCells()));
+                }
+                // Multi-column grids (e.g. competency maps) carry meaning in the
+                // row/column relationship, which flattening destroys. Mark the
+                // site so the honesty stays local rather than presenting a
+                // matrix as an unlabelled vertical run of lines.
+                if ($maxCols >= 3) {
+                    $marker = '[table content, structure not preserved in this phase]';
+                    $blocks[] = $this->block('note', $marker, null, $ref);
+                    $full[] = $marker;
+                }
+                foreach ($rows as $row) {
                     foreach ($row->getCells() as $cell) {
                         $this->walk($cell->getElements(), $blocks, $full, $ref);
                     }
@@ -64,7 +78,7 @@ class DocxParser extends AbstractParser
                 continue;
             }
 
-            $text = $this->inlineText($element);
+            $text = $this->normalizeSpacing($this->inlineText($element));
             if ($text === '') {
                 continue;
             }
@@ -81,6 +95,38 @@ class DocxParser extends AbstractParser
             }
             $full[] = $text;
         }
+    }
+
+    /**
+     * Repair run-in concatenation. Adjacent runs/cells are joined without a
+     * separator, so "Position:" + "Senior…" becomes "Position:Senior…". Insert
+     * a space after a label colon (but not inside times like 14:30) and around
+     * a pipe that sits hard against text.
+     */
+    private function normalizeSpacing($text)
+    {
+        if ($text === '') {
+            return '';
+        }
+        // Space after a colon unless it is a digit:digit time (e.g. 14:30).
+        $text = preg_replace_callback('/(.):(?=(\S))/u', function ($m) {
+            $before = $m[1];
+            $after = $m[2];
+            if (ctype_digit($before) && ctype_digit($after)) {
+                return $before . ':';
+            }
+            return $before . ': ';
+        }, $text);
+        // Sentence-mark run-in from joined runs ("delivery.Continued",
+        // "issues).Builds"). Only split when a lowercase letter or a closing
+        // bracket precedes the mark and an uppercase letter follows, so
+        // decimals (3.5), acronyms (U.S.A) and "No.5" tokens are left intact.
+        $text = preg_replace('/(?<=[a-z)\]])([.!?])(?=[A-Z])/u', '$1 ', $text);
+        // Normalise pipe separators to " | " so cell joins stay legible.
+        $text = preg_replace('/\s*\|\s*/u', ' | ', $text);
+        // Collapse any doubled spaces introduced above.
+        $text = preg_replace('/[ \t]{2,}/u', ' ', $text);
+        return trim($text);
     }
 
     /** Flatten an inline element (Text / TextRun / Title / ListItem) to a string. */

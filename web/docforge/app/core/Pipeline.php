@@ -210,6 +210,10 @@ class Pipeline
         for ($p = 1; $p <= $pageCount; $p++) {
             $pages[] = array('number' => $p);
         }
+        // Flowed formats (DOCX/TXT/MD) have no fixed pagination — reporting
+        // "1 page" for a 20-minute read misleads. Disclose it honestly.
+        $flowed = strtoupper($meta['source_type']) !== 'PDF';
+        $pageDisplay = $flowed ? 'n/a (flowed format)' : $pageCount;
         return array(
             'version' => $this->config['app']['knowledge_layer_version'],
             'title' => $title,
@@ -219,7 +223,7 @@ class Pipeline
                 'mime' => $meta['mime'],
                 'source_name' => $meta['source_name'],
                 'language' => isset($ir['language']) ? $ir['language'] : 'en',
-                'page_count' => $pageCount,
+                'page_count' => $pageDisplay,
                 'extracted_at' => gmdate('c'),
                 'duplicate_of' => $this->findDuplicate($meta['fingerprint']),
             ),

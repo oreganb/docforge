@@ -146,6 +146,12 @@ class MarkdownExporter
                     $lines[] = '';
                 } elseif ($b['type'] === 'list') {
                     $lines[] = '- ' . $b['text'];
+                } elseif ($b['type'] === 'note') {
+                    if (end($lines) !== '') {
+                        $lines[] = '';
+                    }
+                    $lines[] = '_' . $b['text'] . '_';
+                    $lines[] = '';
                 } else {
                     $lines[] = $b['text'];
                     $lines[] = '';

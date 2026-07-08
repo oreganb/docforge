@@ -44,9 +44,24 @@ class SummaryModule extends AbstractModule
         $extended = '';
         $findings = array();
 
+        // Template documents (forms, appraisals) repeat their scaffolding by
+        // design, and TextRank rewards repetition — so boilerplate label lines
+        // out-rank real prose. Mirror the page-furniture detector one level
+        // down: sentences that recur near-identically across the document are
+        // scaffolding, so strip them before ranking and keep them out of the
+        // summary/findings.
+        $templates = $this->templateSignatures($sentences);
         $ranked = array();
         try {
-            $input = strlen($text) > self::MAX_CHARS ? substr($text, 0, self::MAX_CHARS) : $text;
+            $deScaffolded = array();
+            foreach ($sentences as $s) {
+                if (!isset($templates[$this->signature($s)])) {
+                    $deScaffolded[] = $s;
+                }
+            }
+            // Guard: if stripping leaves too little, rank the original text.
+            $rankText = count($deScaffolded) >= 3 ? implode(' ', $deScaffolded) : $text;
+            $input = strlen($rankText) > self::MAX_CHARS ? substr($rankText, 0, self::MAX_CHARS) : $rankText;
             $facade = new TextRankFacade();
             $facade->setStopWords(new English());
             // Returns an array of the most important sentences (index => sentence).
@@ -56,9 +71,24 @@ class SummaryModule extends AbstractModule
             $ranked = array();
         }
 
+        // Belt and braces: drop any scaffolding that still slipped through.
+        $ranked = array_values(array_filter($ranked, function ($s) use ($templates) {
+            return !isset($templates[$this->signature($s)]);
+        }));
+
         if (empty($ranked)) {
-            // Fallback: lead sentences.
-            $ranked = array_slice($sentences, 0, 8);
+            // Fallback: lead sentences that are not scaffolding.
+            foreach ($sentences as $s) {
+                if (!isset($templates[$this->signature($s)])) {
+                    $ranked[] = $s;
+                }
+                if (count($ranked) >= 8) {
+                    break;
+                }
+            }
+            if (empty($ranked)) {
+                $ranked = array_slice($sentences, 0, 8);
+            }
         }
 
         $shortParts = array_slice($ranked, 0, 5);
@@ -177,6 +207,46 @@ class SummaryModule extends AbstractModule
     {
         $parts = preg_split('/(?<=[.!?])\s+/', trim($text));
         return array_values(array_filter($parts));
+    }
+
+    /**
+     * Signature for near-identical matching. Label lines ("Position: X",
+     * "Competency Alignment (Grade 7): Y") share the part before the colon, so
+     * that is the signature; other sentences use their normalised whole text.
+     */
+    private function signature($sentence)
+    {
+        $s = trim((string) $sentence);
+        if (preg_match('/^(.{2,60}?):\s/u', $s, $m)) {
+            return mb_strtolower(preg_replace('/\s+/', ' ', trim($m[1])));
+        }
+        return mb_strtolower(preg_replace('/\s+/', ' ', $s));
+    }
+
+    /**
+     * Signatures that recur across the document (≥ 2 occurrences) are template
+     * scaffolding. Returns them as a set keyed by signature.
+     *
+     * @param array<int,string> $sentences
+     * @return array<string,bool>
+     */
+    private function templateSignatures(array $sentences)
+    {
+        $counts = array();
+        foreach ($sentences as $s) {
+            $sig = $this->signature($s);
+            if ($sig === '') {
+                continue;
+            }
+            $counts[$sig] = isset($counts[$sig]) ? $counts[$sig] + 1 : 1;
+        }
+        $templates = array();
+        foreach ($counts as $sig => $n) {
+            if ($n >= 2) {
+                $templates[$sig] = true;
+            }
+        }
+        return $templates;
     }
 
     private function trimWords($text, $max)
