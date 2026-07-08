@@ -242,10 +242,29 @@ class Pipeline
             'keyphrases' => isset($ir['keyphrases']) ? $ir['keyphrases'] : array(),
             'statistics' => isset($ir['statistics']) ? $ir['statistics'] : array(),
             'quality' => array_merge($quality, $scores),
-            'provenance' => array(
-                array('section' => 'extraction', 'method' => 'parser', 'tool' => isset($ir['parser']) ? $ir['parser'] : 'unknown'),
-            ),
+            'provenance' => $this->buildProvenance($ir),
         );
+    }
+
+    /**
+     * @param array<string,mixed> $ir
+     * @return array<int,array<string,string>>
+     */
+    private function buildProvenance(array $ir)
+    {
+        $provenance = array(
+            array('section' => 'extraction', 'method' => 'parser', 'tool' => isset($ir['parser']) ? $ir['parser'] : 'unknown'),
+        );
+        // When language couldn't be trusted (too little text), record that we
+        // declared it undetermined and fell back to English stopwords.
+        if (!empty($ir['language_fallback']) || (isset($ir['language']) && $ir['language'] === 'und')) {
+            $provenance[] = array(
+                'section' => 'language',
+                'method' => 'fallback',
+                'tool' => 'undetermined; English stopwords used (input below reliable-detection threshold)',
+            );
+        }
+        return $provenance;
     }
 
     /**

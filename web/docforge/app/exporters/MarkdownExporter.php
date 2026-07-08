@@ -45,7 +45,10 @@ class MarkdownExporter
         $lines[] = '- **MIME:** ' . (isset($fp['mime']) ? $fp['mime'] : 'unknown');
         $lines[] = '- **Size:** ' . $this->formatBytes(isset($fp['size_bytes']) ? $fp['size_bytes'] : 0);
         $lines[] = '- **Pages:** ' . (isset($fp['page_count']) ? $fp['page_count'] : 1);
-        $lines[] = '- **Language:** ' . (isset($fp['language']) ? $fp['language'] : 'unknown');
+        $lang = isset($fp['language']) ? $fp['language'] : 'unknown';
+        $lines[] = '- **Language:** ' . ($lang === 'und'
+            ? 'undetermined (input too short for reliable detection; English stopwords used)'
+            : $lang);
         $lines[] = '- **Extracted:** ' . (isset($fp['extracted_at']) ? $fp['extracted_at'] : gmdate('c'));
         if (!empty($fp['duplicate_of']) && !empty($fp['duplicate_of']['report_id'])) {
             $dup = $fp['duplicate_of'];

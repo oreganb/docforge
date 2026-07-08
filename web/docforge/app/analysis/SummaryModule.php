@@ -107,8 +107,10 @@ class SummaryModule extends AbstractModule
         $shortParts = array_slice($ranked, 0, 5);
         $short = $this->trimWords(implode(' ', $shortParts), 150);
         $extended = $this->trimWords(implode(' ', $ranked), 500);
-        foreach ($shortParts as $sentence) {
-            if (preg_match(self::FINDING_SIGNAL, $sentence) && $this->isGenuineFinding($sentence)) {
+        foreach ($ranked as $sentence) {
+            if (preg_match(self::FINDING_SIGNAL, $sentence)
+                && $this->isGenuineFinding($sentence)
+                && !isset($templates[$this->signature($sentence)])) {
                 $findings[] = $sentence;
             }
         }
@@ -117,7 +119,9 @@ class SummaryModule extends AbstractModule
             $short = $this->trimWords($sentences[0], 150);
         }
 
-        $findings = array_slice($findings, 0, 5);
+        // Order by quantitative density so a data-rich finding ("€750,000") beats
+        // an incidental dateline, without a fragile "is-this-metadata" filter.
+        $findings = array_slice($this->rankByDensity($findings), 0, 5);
         return array(
             'summaries' => array(
                 'short' => $short,
@@ -172,22 +176,79 @@ class SummaryModule extends AbstractModule
         if (empty($ir['blocks']) || !is_array($ir['blocks'])) {
             return array();
         }
-        $findings = array();
+        // Collect every body sentence so we can suppress recurring scaffolding
+        // (e.g. "Start Month: … | End Month: …") the same way the summary does.
+        $sentences = array();
         foreach ($ir['blocks'] as $block) {
             $type = isset($block['type']) ? $block['type'] : '';
             if ($type !== 'list' && $type !== 'paragraph') {
                 continue;
             }
             foreach ($this->sentences((string) $block['text']) as $sentence) {
-                if (preg_match(self::FINDING_SIGNAL, $sentence) && $this->isGenuineFinding($sentence)) {
-                    $findings[] = trim($sentence);
-                    if (count($findings) >= 5) {
-                        return $findings;
-                    }
-                }
+                $sentences[] = trim($sentence);
             }
         }
-        return $findings;
+        $templates = $this->templateSignatures($sentences);
+        $candidates = array();
+        foreach ($sentences as $sentence) {
+            if (preg_match(self::FINDING_SIGNAL, $sentence)
+                && $this->isGenuineFinding($sentence)
+                && !isset($templates[$this->signature($sentence)])) {
+                $candidates[] = $sentence;
+            }
+        }
+        // Rank by quantitative density, then keep the strongest five.
+        return array_slice($this->rankByDensity($candidates), 0, 5);
+    }
+
+    /**
+     * Order findings by quantitative density (currency, percentages, multi-digit
+     * quantities, conclusive verbs) so data-rich statements lead and incidental
+     * datelines fall away — a ranking, not an exclusion filter.
+     *
+     * @param array<int,string> $findings
+     * @return array<int,string>
+     */
+    private function rankByDensity(array $findings)
+    {
+        // De-duplicate while preserving first appearance.
+        $seen = array();
+        $unique = array();
+        foreach ($findings as $f) {
+            $key = mb_strtolower(preg_replace('/\s+/', ' ', trim($f)));
+            if ($key === '' || isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $unique[] = $f;
+        }
+        // Stable sort by descending density (usort is not stable, so carry index).
+        $indexed = array();
+        foreach ($unique as $i => $f) {
+            $indexed[] = array('i' => $i, 'text' => $f, 'score' => $this->densityScore($f));
+        }
+        usort($indexed, function ($a, $b) {
+            if ($a['score'] === $b['score']) {
+                return $a['i'] - $b['i'];
+            }
+            return $b['score'] - $a['score'];
+        });
+        $out = array();
+        foreach ($indexed as $row) {
+            $out[] = $row['text'];
+        }
+        return $out;
+    }
+
+    private function densityScore($sentence)
+    {
+        $s = (string) $sentence;
+        $score = 0;
+        $score += 4 * preg_match_all('/[€£$]/u', $s);                 // currency
+        $score += 3 * preg_match_all('/\d+(?:\.\d+)?\s*%/u', $s);      // percentages
+        $score += 2 * preg_match_all('/\b\d{2,}\b/u', $s);            // multi-digit quantities
+        $score += 1 * preg_match_all('/\b(therefore|thus|conclude[ds]?|significant(ly)?|increase[ds]?|decrease[ds]?|reduced|improved)\b/i', $s);
+        return $score;
     }
 
     /** First sentence of the first paragraph block (document lead-in), if any. */

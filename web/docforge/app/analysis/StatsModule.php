@@ -36,7 +36,8 @@ class StatsModule extends AbstractModule
             $flesch = 0.0;
         }
 
-        $language = $this->detectLanguage($text);
+        $language = $this->detectLanguage($text, $wordCount);
+        $languageFallback = ($language === 'und');
 
         return array(
             'statistics' => array(
@@ -48,11 +49,22 @@ class StatsModule extends AbstractModule
                 'language' => $language,
             ),
             'language' => $language,
+            'language_fallback' => $languageFallback,
         );
     }
 
-    private function detectLanguage($text)
+    /** Below this word count, statistical language detection is unreliable. */
+    const MIN_WORDS_FOR_LANGUAGE = 25;
+
+    private function detectLanguage($text, $wordCount)
     {
+        // Too little text for a trustworthy verdict — declare "undetermined"
+        // rather than emit a spurious label (a 14-word note detected as "nb").
+        // Downstream analysis falls back to English stopwords; this is disclosed
+        // in the quality notes / provenance.
+        if ($wordCount < self::MIN_WORDS_FOR_LANGUAGE) {
+            return 'und';
+        }
         try {
             // Cap the sample: language detection is O(text) and unnecessary on full docs.
             $sample = strlen($text) > 2000 ? substr($text, 0, 2000) : $text;
