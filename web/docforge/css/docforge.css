@@ -382,15 +382,187 @@ a:hover {
 }
 
 .df-view-content {
-  max-width: 720px;
+  max-width: 760px;
   margin: 0 auto;
   padding: 2rem 1.25rem 4rem;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
-.df-view-content h1, .df-view-content h2, .df-view-content h3 {
+.df-report-title {
+  font-family: inherit;
+  font-size: 1.5rem;
+  font-weight: 680;
+  letter-spacing: -0.01em;
   color: var(--df-ink);
 }
-.df-view-content p, .df-view-content li {
+
+/* ── Report metrics panel (frontmatter surfaced for triage) ─────────── */
+.df-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.25rem 1.75rem;
+  background: var(--df-surface);
+  border: 1px solid var(--df-border);
+  border-radius: 12px;
+  padding: 1.1rem 1.35rem;
+  margin-bottom: 2rem;
+}
+.df-metric-score {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 150px;
+}
+.df-metric-score-num {
+  font-size: 1.9rem;
+  font-weight: 700;
+  color: var(--df-ink);
+  line-height: 1;
+}
+.df-metric-score-num small {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--df-slate-soft);
+}
+.df-metric-score .df-score-bar {
+  height: 6px;
+  flex: none;
+  width: 100%;
+}
+.df-metric-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--df-slate-soft);
+  font-weight: 600;
+}
+.df-metric-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.75rem 1.25rem;
+  margin: 0;
+  flex: 1;
+  min-width: 240px;
+}
+.df-metric-list div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.df-metric-list dt {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--df-slate-soft);
+  font-weight: 600;
+}
+.df-metric-list dd {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--df-ink);
+  font-weight: 500;
+}
+.df-metric-list dd.df-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.82rem;
   color: var(--df-slate);
+}
+.df-flag {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 20px;
+  padding: 0.1rem 0.55rem;
+  margin-right: 0.3rem;
+}
+.df-flag-ok {
+  color: var(--df-ok);
+  background: rgba(22, 163, 74, 0.1);
+}
+.df-flag-warn {
+  color: var(--df-warn);
+  background: rgba(217, 119, 6, 0.12);
+}
+
+/* ── Report body: one heading style, one text style throughout ──────── */
+.report-body {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: var(--df-ink);
+  font-size: 0.95rem;
+  line-height: 1.7;
+}
+.report-body h1,
+.report-body h2,
+.report-body h3,
+.report-body h4,
+.report-body h5,
+.report-body h6 {
+  font-family: inherit;
+  font-size: 1.15rem;
+  font-weight: 650;
+  color: var(--df-ink);
+  line-height: 1.35;
+  letter-spacing: -0.005em;
+  margin: 1.9rem 0 0.65rem;
+}
+.report-body p,
+.report-body li,
+.report-body td,
+.report-body th,
+.report-body blockquote {
+  font-family: inherit;
+  font-size: 0.95rem;
+  color: var(--df-ink);
+  line-height: 1.7;
+}
+.report-body ul,
+.report-body ol {
+  padding-left: 1.35rem;
+}
+.report-body li {
+  margin-bottom: 0.25rem;
+}
+.report-body strong {
+  font-weight: 650;
+}
+.report-body a {
+  color: var(--df-forge);
+}
+.report-body hr {
+  border: none;
+  border-top: 1px solid var(--df-border);
+  margin: 1.75rem 0;
+}
+.report-body code,
+.report-body pre {
+  font-family: inherit;
+  font-size: 0.95rem;
+  background: none;
+  color: inherit;
+  padding: 0;
+}
+.report-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0 1.5rem;
+  font-size: 0.9rem;
+}
+.report-body th,
+.report-body td {
+  border: 1px solid var(--df-border);
+  padding: 0.5rem 0.7rem;
+  text-align: left;
+  vertical-align: top;
+}
+.report-body th {
+  background: var(--df-bg);
+  font-weight: 650;
+}
+
+@media (max-width: 576px) {
+  .df-metric-score {
+    min-width: 100%;
+  }
 }
 
 .df-fail-msg {
