@@ -64,12 +64,20 @@ require __DIR__ . '/includes/header.php';
   </div>
 
   <?php if (!empty($items)): ?>
-  <div class="df-merge-bar" id="mergeBar" role="region" aria-label="Forge Merge">
-    <span class="df-merge-count" id="mergeCount">Select 2+ reports to merge</span>
+  <div class="df-merge-bar" id="mergeBar" role="region" aria-label="Report actions">
+    <span class="df-merge-count" id="mergeCount">Select 2+ reports to merge or cite</span>
     <label class="df-merge-compact">
       <input type="checkbox" id="mergeCompact"> Compact (context profile)
     </label>
     <button type="button" class="btn btn-forge" id="mergeBtn" disabled>Forge Merge</button>
+    <span class="df-cite-group">
+      <label class="df-cite-working" for="citeWorking">Document
+        <select id="citeWorking" class="form-select form-select-sm" disabled>
+          <option value="">Select 2+ reports…</option>
+        </select>
+      </label>
+      <button type="button" class="btn btn-forge" id="citeBtn" disabled title="Score the other selected reports as references for the chosen document">Forge Cite</button>
+    </span>
   </div>
   <?php endif; ?>
 

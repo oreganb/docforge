@@ -355,6 +355,25 @@ a:hover {
 .df-merge-bar .btn-forge {
   margin-left: auto;
 }
+.df-cite-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.df-cite-working {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  color: var(--df-slate);
+  font-size: 0.85rem;
+}
+.df-cite-working select {
+  max-width: 14rem;
+}
+.df-merge-bar #citeBtn {
+  margin-left: 0;
+}
 
 .df-badge {
   font-size: 11px;
