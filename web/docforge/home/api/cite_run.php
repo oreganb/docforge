@@ -113,7 +113,10 @@ try {
 
     $parsedown = new Parsedown();
     $parsedown->setSafeMode(true);
-    $html = CiteHighlighter::highlightHtml($parsedown->text($body));
+    $html = $parsedown->text($body);
+    $passages = isset($result['analysis']['passages']) ? $result['analysis']['passages'] : array();
+    $html = CiteHighlighter::highlightPassages($html, $passages);
+    $html = CiteHighlighter::highlightHtml($html);
 
     $refNames = array();
     foreach ($references as $r) {

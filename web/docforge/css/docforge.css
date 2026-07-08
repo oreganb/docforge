@@ -485,6 +485,31 @@ a:hover {
   gap: 0.5rem 0.75rem;
   margin-bottom: 0.85rem;
   font-size: 0.78rem;
+  align-items: center;
+}
+.df-cite-legend-note {
+  flex: 1 1 100%;
+  color: var(--df-slate);
+  font-size: 0.76rem;
+  opacity: 0.9;
+}
+/* Passage-level highlights in Annotated Document */
+.report-body .df-cite-passage {
+  padding: 0.65rem 0.9rem;
+  border-radius: 0 8px 8px 0;
+  margin: 0.35rem 0 0.75rem;
+}
+.report-body .df-cite-passage-great {
+  background: color-mix(in srgb, #22c55e 14%, var(--df-surface));
+  border-left: 4px solid #22c55e;
+}
+.report-body .df-cite-passage-okay {
+  background: color-mix(in srgb, #fb923c 14%, var(--df-surface));
+  border-left: 4px solid #fb923c;
+}
+.report-body .df-cite-passage-poor {
+  background: color-mix(in srgb, #f87171 12%, var(--df-surface));
+  border-left: 4px solid #f87171;
 }
 .report-body .df-cite-tier {
   font-weight: 650;

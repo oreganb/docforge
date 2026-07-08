@@ -38,6 +38,62 @@ class CiteHighlighter
     }
 
     /**
+     * Highlight each passage paragraph in §2 Annotated Document using the best
+     * match affinity for that passage (same tier thresholds as score badges).
+     *
+     * @param array<int,array<string,mixed>> $passages analyzer output passages
+     */
+    public static function highlightPassages($html, array $passages)
+    {
+        if (empty($passages)) {
+            return $html;
+        }
+
+        $start = stripos($html, '<h2>2. Annotated Document</h2>');
+        if ($start === false) {
+            return $html;
+        }
+        $end = stripos($html, '<h2>3. Per-Reference Evidence</h2>', $start);
+        $head = substr($html, 0, $start);
+        $section = $end !== false ? substr($html, $start, $end - $start) : substr($html, $start);
+        $tail = $end !== false ? substr($html, $end) : '';
+
+        $idx = 0;
+        $section = preg_replace_callback(
+            '/<h3>[^<]*<\/h3>\s*<p>(.*?)<\/p>/s',
+            function ($m) use ($passages, &$idx) {
+                if (!isset($passages[$idx])) {
+                    return $m[0];
+                }
+                $passage = $passages[$idx];
+                $idx++;
+
+                $best = 0.0;
+                foreach (isset($passage['matches']) ? $passage['matches'] : array() as $match) {
+                    $aff = isset($match['affinity']) ? (float) $match['affinity'] : 0.0;
+                    if ($aff > $best) {
+                        $best = $aff;
+                    }
+                }
+                $tier = self::tier($best);
+                if ($tier === null) {
+                    return $m[0];
+                }
+
+                return preg_replace(
+                    '/<p>/',
+                    '<p class="df-cite-passage df-cite-passage-' . $tier . '">',
+                    $m[0],
+                    1
+                );
+            },
+            $section
+        );
+
+        return $head . $section . $tail;
+    }
+
+    /**
      * Post-process Parsedown HTML: wrap scored values in tier spans.
      */
     public static function highlightHtml($html)

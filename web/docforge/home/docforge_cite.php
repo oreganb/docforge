@@ -80,6 +80,7 @@ require __DIR__ . '/includes/header.php';
           <span class="df-cite-tier df-cite-tier-okay">0.75–0.84 Okay</span>
           <span class="df-cite-tier df-cite-tier-poor">0.66–0.74 Poor</span>
           <span class="df-cite-tier-none">≤ 0.65 No highlight</span>
+          <span class="df-cite-legend-note">Passage text is shaded to match its best reference affinity.</span>
         </div>
         <div class="df-cite-results-actions">
           <button type="button" class="btn btn-outline-ink btn-sm" id="citeDownloadMd">Download .md</button>
