@@ -4,6 +4,10 @@
 # Internal docs — may contain confidential information (specs, credentials, screenshots)
 docs/
 
+# Local-only working material, not needed in the public repo
+testiing/
+template/
+
 # Deploy credentials — kept locally only, never committed
 scripts/.deploy.env
 
