@@ -62,17 +62,26 @@ class QualityEngine
                 . implode('", "', $shown) . '"' . (count($chrome) > 6 ? ' …' : '') . '.';
         }
 
-        // Tables: count any that were preserved with structure intact.
+        // Tables: distinguish structure-preserved (GFM, from DOCX cell nodes)
+        // from structure-flattened (a marker inserted where a flowed source lost
+        // the cell boundaries).
         $tableCount = 0;
+        $flattenedTables = 0;
         foreach (isset($ir['blocks']) ? $ir['blocks'] : array() as $b) {
-            if (isset($b['type']) && $b['type'] === 'table') {
+            if (!isset($b['type'])) {
+                continue;
+            }
+            if ($b['type'] === 'table') {
                 $tableCount++;
+            } elseif ($b['type'] === 'note' && isset($b['text'])
+                && stripos($b['text'], 'structure not preserved') !== false) {
+                $flattenedTables++;
             }
         }
 
         // FR-6 omitted-sections audit — name every dimension not analysed.
         $notAnalysed = array('Entities', 'Figures / image analysis');
-        if ($tableCount === 0) {
+        if ($tableCount === 0 && $flattenedTables === 0) {
             $notAnalysed[] = 'Tables (none detected)';
         }
         $refs = isset($ir['references']) ? count($ir['references']) : 0;
@@ -85,6 +94,11 @@ class QualityEngine
         if ($tableCount > 0) {
             $notes[] = $tableCount . ' table(s) preserved as Markdown with row/column structure intact '
                 . '(cell boundaries retained from the source; not semantically analysed in this phase).';
+        }
+        if ($flattenedTables > 0) {
+            $notes[] = $flattenedTables . ' table region(s) detected in a flowed source (PDF/TXT) where cell '
+                . 'boundaries are not recoverable — rows are shown inline and marked "[table: structure not '
+                . 'preserved]" rather than presented as prose.';
         }
 
         // Declared source artefacts (extract-never-fix): if the source itself

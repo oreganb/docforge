@@ -110,6 +110,42 @@ class TextNormalizer
         }
         $hasDecimalSkeleton = $decimalSections >= 2;
 
+        // Pass 1.7 — locate flattened tables. A flowed source (PDF/TXT) loses a
+        // table's cell boundaries, so a grid becomes a header row ("Initials
+        // Name Company Title") followed by tuple rows ("BOR Brian O Regan …").
+        // We can't rebuild the columns, but we can mark the site so the reader
+        // treats it as rows, not sentences. Firing needs BOTH a header line and
+        // an immediately-following tuple row, which keeps prose Title-Case
+        // headings from triggering it.
+        $insertMarker = array_fill(0, $count, false);
+        $rowLine = array_fill(0, $count, false);
+        for ($i = 0; $i < $count; $i++) {
+            if ($drop[$i] || $trimmed[$i] === '' || !self::isTableHeaderLine($trimmed[$i])) {
+                continue;
+            }
+            $j = $i + 1;
+            while ($j < $count && ($trimmed[$j] === '' || $drop[$j])) {
+                if ($trimmed[$j] !== '') {
+                    break; // a dropped non-blank breaks contiguity
+                }
+                $j++;
+            }
+            if ($j >= $count || $trimmed[$j] === '' || $drop[$j] || !self::isTableRowLine($trimmed[$j])) {
+                continue;
+            }
+            $insertMarker[$i] = true;
+            $rowLine[$i] = true; // the header row itself
+            for ($k = $j; $k < $count && $trimmed[$k] !== ''; $k++) {
+                if ($drop[$k]) {
+                    continue;
+                }
+                if (!self::isTableRowLine($trimmed[$k])) {
+                    break;
+                }
+                $rowLine[$k] = true;
+            }
+        }
+
         // Pass 2 — classify surviving lines into blocks, merging wrapped lines.
         $blocks = array();
         $pending = null;
@@ -130,6 +166,19 @@ class TextNormalizer
             $line = $trimmed[$i];
             if ($line === '') {
                 $flush();
+                continue;
+            }
+            // Flattened-table region: emit an honesty marker once, then keep
+            // each row as its own line so it reads as rows, not a merged run.
+            if ($insertMarker[$i]) {
+                $flush();
+                $blocks[] = array('type' => 'note', 'text' => '[table: structure not preserved]');
+            }
+            if ($rowLine[$i]) {
+                $flush();
+                // Tagged so downstream analysis (Key Findings) treats these as
+                // tabular rows, not prose sentences.
+                $blocks[] = array('type' => 'paragraph', 'text' => $line, 'table_row' => true);
                 continue;
             }
             // Dotted TOC leaders are navigation, not body content.
@@ -248,6 +297,61 @@ class TextNormalizer
             }
             $j += $dir;
         }
+    }
+
+    /**
+     * A table header row in flattened text: 3–8 tokens, (nearly) all starting
+     * with a capital, no terminal punctuation — "Initials Name Company Title",
+     * "Version Updated by (Name) Date Modified Section(s)".
+     */
+    private static function isTableHeaderLine($line)
+    {
+        $t = trim($line);
+        if ($t === '' || mb_strlen($t) > 70) {
+            return false;
+        }
+        if (preg_match('/[.!?:;,]$/u', $t)) {
+            return false;
+        }
+        if (preg_match(self::BULLET, $t) || preg_match(self::NUMBERED_ITEM, $t)
+            || preg_match(self::SECTION_NUM, $t) || preg_match(self::DOT_LEADER, $t)) {
+            return false;
+        }
+        $tokens = preg_split('/\s+/u', $t);
+        $n = count($tokens);
+        if ($n < 3 || $n > 8) {
+            return false;
+        }
+        $caps = 0;
+        foreach ($tokens as $tok) {
+            if (preg_match('/^[(\[]?\p{Lu}/u', $tok)) {
+                $caps++;
+            }
+        }
+        // Nearly every token capitalised (allow one connective like "by"/"of").
+        return $caps >= 3 && $caps >= $n - 1;
+    }
+
+    /**
+     * A table data row: begins with a short index cell (a number, or a 2–5
+     * letter uppercase code / set of initials) and carries ≥ 3 tokens.
+     */
+    private static function isTableRowLine($line)
+    {
+        $t = trim($line);
+        if ($t === '' || mb_strlen($t) > 120) {
+            return false;
+        }
+        if (preg_match(self::BULLET, $t) || preg_match(self::SECTION_NUM, $t)
+            || preg_match(self::DOT_LEADER, $t)) {
+            return false;
+        }
+        $tokens = preg_split('/\s+/u', $t);
+        if (count($tokens) < 3) {
+            return false;
+        }
+        $first = $tokens[0];
+        return (bool) (preg_match('/^\d{1,3}$/u', $first) || preg_match('/^\p{Lu}{2,5}$/u', $first));
     }
 
     /** A short, title-like numbered line (not a "label: long clause" list item). */
@@ -393,6 +497,11 @@ class TextNormalizer
     {
         $out = array();
         foreach ($blocks as $b) {
+            // Markers (e.g. the flattened-table note) are metadata for the
+            // reader, not body content — keep them out of the analysis text.
+            if (isset($b['type']) && $b['type'] === 'note') {
+                continue;
+            }
             $out[] = $b['text'];
         }
         return implode("\n", $out);

@@ -40,6 +40,16 @@ class SummaryModule extends AbstractModule
                 $this->furniture[$norm] = true;
             }
         }
+        // Flattened-table rows (Revision History, Team Members, …) are tabular
+        // cells, not findings — exclude them the same way as furniture.
+        foreach (isset($ir['blocks']) ? $ir['blocks'] : array() as $block) {
+            if (!empty($block['table_row']) && isset($block['text'])) {
+                $norm = mb_strtolower(preg_replace('/\s+/', ' ', trim((string) $block['text'])));
+                if (mb_strlen($norm) >= 8) {
+                    $this->furniture[$norm] = true;
+                }
+            }
+        }
 
         // List-dominant documents (competency frameworks, checklists, spec
         // sheets) give sentence-ranking no signal — ranked prose assumptions
