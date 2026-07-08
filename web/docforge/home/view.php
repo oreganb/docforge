@@ -122,6 +122,15 @@ require __DIR__ . '/includes/header.php';
       <?php if (isset($meta['pages']) && $meta['pages'] !== ''): ?>
       <div><dt>Pages</dt><dd><?php echo htmlspecialchars($meta['pages']); ?></dd></div>
       <?php endif; ?>
+      <?php if (!empty($meta['format'])): ?>
+      <div><dt>Format</dt><dd><?php echo htmlspecialchars($meta['format']); ?></dd></div>
+      <?php endif; ?>
+      <?php if (isset($meta['rows']) && $meta['rows'] !== ''): ?>
+      <div><dt>Rows</dt><dd><?php echo htmlspecialchars($meta['rows']); ?></dd></div>
+      <?php endif; ?>
+      <?php if (isset($meta['columns']) && $meta['columns'] !== ''): ?>
+      <div><dt>Columns</dt><dd><?php echo htmlspecialchars($meta['columns']); ?></dd></div>
+      <?php endif; ?>
       <?php if (!empty($meta['language'])): ?>
       <div><dt>Language</dt><dd><?php echo htmlspecialchars($meta['language']); ?></dd></div>
       <?php endif; ?>

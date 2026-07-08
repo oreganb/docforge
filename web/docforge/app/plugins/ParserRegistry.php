@@ -8,6 +8,9 @@ class ParserRegistry
     public static function all()
     {
         return array(
+            // DataParser first: an XLSX is a PK/zip whose MIME contains
+            // "officedocument", which DocxParser would otherwise claim.
+            new DataParser(),
             new PdfParser(),
             new DocxParser(),
             new MdParser(),

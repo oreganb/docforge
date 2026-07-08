@@ -20,13 +20,13 @@ require __DIR__ . '/includes/header.php';
     <div id="state-idle" class="df-idle">
       <div class="df-drop" id="drop" tabindex="0" role="button" aria-label="Drag and drop a file, or press Enter to browse">
         <i class="bi bi-paperclip df-drop-icon" aria-hidden="true"></i>
-        <p id="dropText">Drag &amp; drop a file to analyse, or click to browse</p>
+        <p id="dropText">Drag &amp; drop a file to analyse, or click to browse<br><span class="df-drop-formats">PDF, DOCX, Markdown, text &middot; or a dataset (CSV, TSV, XLSX, JSON)</span></p>
         <div class="df-file d-none" id="fileChip">
           <i class="bi bi-file-earmark-text"></i>
           <span id="fileName"></span><span class="size" id="fileSize"></span>
           <button type="button" class="clear" id="clearFile" aria-label="Remove file">&times;</button>
         </div>
-        <input type="file" id="fileInput" class="d-none" accept=".pdf,.docx,.md,.txt,.markdown">
+        <input type="file" id="fileInput" class="d-none" accept=".pdf,.docx,.md,.txt,.markdown,.csv,.tsv,.xlsx,.xls,.json">
         <button type="button" class="btn btn-forge df-run" id="runBtn" disabled>Run</button>
       </div>
 

@@ -37,11 +37,17 @@ class FileValidator
         $type = self::detectType($head, $ext);
         if ($type === null) {
             if (self::looksLikeText($head)) {
-                $type = ($ext === 'md') ? 'MD' : 'TXT';
+                // Data formats are text on disk — disambiguate by extension.
+                if (in_array($ext, array('csv', 'tsv', 'json'), true)) {
+                    $type = strtoupper($ext);
+                } else {
+                    $type = ($ext === 'md') ? 'MD' : 'TXT';
+                }
             } else {
                 return array(
                     'ok' => false,
-                    'error' => 'This file type is not supported yet. Try PDF, DOCX, Markdown, or plain text.',
+                    'error' => 'This file type is not supported yet. Try PDF, DOCX, Markdown, '
+                        . 'plain text, or a dataset (CSV, TSV, XLSX, JSON).',
                 );
             }
         }
@@ -98,6 +104,9 @@ class FileValidator
             'MD' => 'text/markdown',
             'TXT' => 'text/plain',
             'XLSX' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'CSV' => 'text/csv',
+            'TSV' => 'text/tab-separated-values',
+            'JSON' => 'application/json',
         );
         return isset($map[$type]) ? $map[$type] : 'application/octet-stream';
     }

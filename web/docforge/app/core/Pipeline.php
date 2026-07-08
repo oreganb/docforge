@@ -2,11 +2,13 @@
 
 namespace DocForge\Core;
 
+use DocForge\Analysis\DataProfileModule;
 use DocForge\Analysis\KeyphraseModule;
 use DocForge\Analysis\ReferenceModule;
 use DocForge\Analysis\StatsModule;
 use DocForge\Analysis\StructureModule;
 use DocForge\Analysis\SummaryModule;
+use DocForge\Exporters\DataMarkdownExporter;
 use DocForge\Exporters\JsonExporter;
 use DocForge\Exporters\MarkdownExporter;
 use DocForge\Plugins\ParserRegistry;
@@ -80,6 +82,11 @@ class Pipeline
                         unlink($filePath);
                     }
                     $plugin->cleanup();
+                } elseif ($stage['stage'] === 'structural analysis' && $ir !== null
+                    && !empty($ir['kind']) && $ir['kind'] === 'dataset') {
+                    // Forge Data: profile the tabular IR instead of text analysis.
+                    $mod = new DataProfileModule();
+                    $ir = array_merge($ir, $mod->analyse($ir));
                 } elseif ($stage['stage'] === 'structural analysis' && $ir !== null) {
                     // Pre-process before any analysis. PDF/plain-text extraction
                     // loses structure and leaks page furniture, so re-segment from
@@ -106,15 +113,15 @@ class Pipeline
 
                     $mod = new StructureModule();
                     $ir = array_merge($ir, $mod->analyse($ir));
-                } elseif ($stage['stage'] === 'identifying references' && $ir !== null) {
+                } elseif ($stage['stage'] === 'identifying references' && $ir !== null && empty($ir['kind'])) {
                     $mod = new ReferenceModule();
                     $ir = array_merge($ir, $mod->analyse($ir));
-                } elseif ($stage['stage'] === 'building summary' && $ir !== null) {
+                } elseif ($stage['stage'] === 'building summary' && $ir !== null && empty($ir['kind'])) {
                     $mod = new SummaryModule();
                     $ir = array_merge($ir, $mod->analyse($ir));
                     $mod2 = new StatsModule();
                     $ir = array_merge($ir, $mod2->analyse($ir));
-                } elseif ($stage['stage'] === 'extracting key phrases' && $ir !== null) {
+                } elseif ($stage['stage'] === 'extracting key phrases' && $ir !== null && empty($ir['kind'])) {
                     $mod = new KeyphraseModule();
                     $ir = array_merge($ir, $mod->analyse($ir));
                 }
@@ -128,7 +135,9 @@ class Pipeline
             }
 
             $title = $this->deriveTitle($ir, $meta['source_name']);
-            $doc = $this->buildKnowledgeLayer($ir, $meta, $title);
+            $doc = (!empty($ir['kind']) && $ir['kind'] === 'dataset')
+                ? $this->buildDatasetDoc($ir, $meta, $title)
+                : $this->buildKnowledgeLayer($ir, $meta, $title);
             $reportId = $this->publish($jobId, $doc, $meta);
 
             Events::emit('KnowledgeBuilt', array('job_id' => $jobId));
@@ -247,6 +256,42 @@ class Pipeline
     }
 
     /**
+     * Dataset (Forge Data) knowledge layer — a parallel doc shape carrying the
+     * column profile and data-quality verdict rather than prose analysis.
+     *
+     * @param array<string,mixed> $ir
+     * @param array<string,mixed> $meta
+     * @return array<string,mixed>
+     */
+    private function buildDatasetDoc(array $ir, array $meta, $title)
+    {
+        return array(
+            'version' => $this->config['app']['knowledge_layer_version'],
+            'title' => $title,
+            'doc_class' => 'dataset',
+            'fingerprint' => array(
+                'sha256' => $meta['fingerprint'],
+                'size_bytes' => $meta['size_bytes'],
+                'mime' => $meta['mime'],
+                'source_name' => $meta['source_name'],
+                'page_count' => 'n/a (dataset)',
+                'extracted_at' => gmdate('c'),
+                'duplicate_of' => $this->findDuplicate($meta['fingerprint']),
+            ),
+            'source' => array('type' => $meta['source_type'], 'name' => $meta['source_name']),
+            'profile' => isset($ir['profile']) ? $ir['profile'] : array(),
+            'summaries' => isset($ir['summaries']) ? $ir['summaries'] : array(),
+            'statistics' => isset($ir['statistics']) ? $ir['statistics'] : array(),
+            'quality' => isset($ir['dataset_quality']) ? $ir['dataset_quality'] : array(),
+            'keyphrases' => array(),
+            'references' => array(),
+            'provenance' => array(
+                array('section' => 'profiling', 'method' => 'measured', 'tool' => 'DataProfileModule'),
+            ),
+        );
+    }
+
+    /**
      * @param array<string,mixed> $ir
      * @return array<int,array<string,string>>
      */
@@ -273,7 +318,9 @@ class Pipeline
      */
     private function publish($jobId, array $doc, array $meta)
     {
-        $mdExporter = new MarkdownExporter();
+        $mdExporter = (!empty($doc['doc_class']) && $doc['doc_class'] === 'dataset')
+            ? new DataMarkdownExporter()
+            : new MarkdownExporter();
         $jsonExporter = new JsonExporter();
         $slug = $jobId;
         $mdPath = 'reports/' . $slug . '.md';
