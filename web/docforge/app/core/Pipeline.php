@@ -170,7 +170,7 @@ class Pipeline
      */
     private function buildKnowledgeLayer(array $ir, array $meta, $title)
     {
-        $quality = QualityEngine::assess($ir);
+        $quality = QualityEngine::assess($ir, $meta);
         $scores = KnowledgeScore::compute($ir);
         $pageCount = isset($ir['page_count']) ? max(1, (int) $ir['page_count']) : 1;
         $pages = array();

@@ -43,6 +43,13 @@ class KnowledgeScore
         }
         $overall = $weightSum > 0 ? (int) round($weighted / $weightSum) : 0;
 
+        // Critical-dimension floor cap: a fatal failure in Content (body-content
+        // loss) must not be masked by a strong Structure score. A beautiful
+        // skeleton with no body cannot be trusted, so it cannot score highly.
+        if (is_int($subs['content']) && $subs['content'] < 40) {
+            $overall = min($overall, max(30, $subs['content']));
+        }
+
         return array(
             'knowledge_score' => min(100, max(0, $overall)),
             'sub_scores' => $subs,
@@ -63,6 +70,7 @@ class KnowledgeScore
     {
         $summary = isset($doc['summaries']['short']) ? $doc['summaries']['short'] : '';
         $kp = isset($doc['keyphrases']) ? count($doc['keyphrases']) : 0;
+        $words = isset($doc['statistics']['word_count']) ? (int) $doc['statistics']['word_count'] : 0;
         $score = 60;
         if (strlen($summary) > 50) {
             $score += 15;
@@ -70,6 +78,27 @@ class KnowledgeScore
         if ($kp >= 5) {
             $score += 15;
         }
+
+        // Content quality is about the BODY, not the skeleton. If the structure
+        // was detected but the sections are empty (table content not read, etc.),
+        // a headings-only summary/keyphrase set must not earn a high score.
+        $sections = isset($doc['sections']) ? $doc['sections'] : array();
+        $sectionCount = count($sections);
+        if ($sectionCount >= 3) {
+            $empty = 0;
+            foreach ($sections as $s) {
+                if ((int) (isset($s['word_count']) ? $s['word_count'] : 0) === 0) {
+                    $empty++;
+                }
+            }
+            if ($empty / $sectionCount >= 0.9) {
+                $score = min($score, 25);
+            }
+        }
+        if ($words < 50) {
+            $score = min($score, 25);
+        }
+
         return min(98, $score);
     }
 
