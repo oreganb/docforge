@@ -14,7 +14,7 @@ require __DIR__ . '/includes/header.php';
 <main class="<?php echo $mainClass; ?>" id="view-home">
   <div class="df-center">
     <div class="df-hero">
-      <img class="df-logo" src="<?php echo $assetBase; ?>images/logo-full.png" alt="DocForge — anvil forging a document into Markdown">
+      <img class="df-logo" src="<?php echo $assetBase; ?>images/docforge_logo.png" alt="DocForge — Deterministic Document Intelligence Engine">
     </div>
 
     <div id="state-idle" class="df-idle">
