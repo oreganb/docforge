@@ -1,6 +1,12 @@
 .DS_Store
 **/.DS_Store
 
+# Internal docs — may contain confidential information (specs, credentials, screenshots)
+docs/
+
+# Deploy credentials — kept locally only, never committed
+scripts/.deploy.env
+
 web/docforge/app/vendor/
 web/docforge/app/config/config.local.php
 web/docforge/storage/uploads-tmp/*
