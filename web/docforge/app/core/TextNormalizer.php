@@ -18,7 +18,16 @@ namespace DocForge\Core;
  */
 class TextNormalizer
 {
-    const BULLET = '/^\s*[\x{2022}\x{2023}\x{25AA}\x{25CF}\x{25E6}\x{2043}\x{2219}\x{00B7}\x{2713}\x{2714}\x{2717}\x{2718}\x{2610}\x{2611}\x{2612}*\x{2013}\x{2014}-]\s+/u';
+    /**
+     * List markers. "Strong" glyphs (real bullets, ballot/check marks, Zapf
+     * Dingbats U+2700–27BF, and Private-Use bullets U+E000–F8FF that symbol
+     * fonts emit) are unambiguous, so they may hug the text with no space
+     * ("<PUA>Dispatch"). "Weak" markers (*, -, en/em dash) need a trailing space
+     * to avoid eating hyphenated words.
+     */
+    const BULLET = '/^\s*(?:[\x{2022}\x{2023}\x{25AA}\x{25CF}\x{25E6}\x{2043}\x{2219}\x{00B7}\x{2713}\x{2714}\x{2717}\x{2718}\x{2610}\x{2611}\x{2612}\x{2700}-\x{27BF}\x{E000}-\x{F8FF}]\s*|[*\x{2013}\x{2014}-]\s+)/u';
+    /** A caption line: "Fig. 5 — …", "Figure 5: …", "Table 3. …" (separator required). */
+    const CAPTION = '/^(fig(?:ure)?\.?|table)\s+\d+[a-z]?\s*[.:\x{2014}\x{2013}\-]\s*\S/iu';
     /** A short single-dot numbered title ("1. Leadership"). */
     const NUMBERED_ITEM = '/^\s*\d+\.\s+[A-Z]/u';
     /** A decimal section number ("1.0", "2.1", "3.2.1 ..."). */
@@ -153,7 +162,20 @@ class TextNormalizer
             if ($pending !== null) {
                 $pending['text'] = trim($pending['text']);
                 if ($pending['text'] !== '') {
+                    $isMath = $pending['type'] === 'paragraph' && self::isMathDense($pending['text']);
+                    if ($isMath) {
+                        $pending['math_degraded'] = true;
+                    }
                     $blocks[] = $pending;
+                    // Declare, don't silently ship: a text-layer extraction cannot
+                    // faithfully preserve mathematical notation. Interim marker
+                    // until Phase 3 math-OCR (Pix2Text / pix2tex) lands.
+                    if ($isMath) {
+                        $blocks[] = array(
+                            'type' => 'note',
+                            'text' => '[equation: notation degraded in text-layer extraction]',
+                        );
+                    }
                 }
                 $pending = null;
             }
@@ -184,6 +206,13 @@ class TextNormalizer
             // Dotted TOC leaders are navigation, not body content.
             if (preg_match(self::DOT_LEADER, $line)) {
                 $flush();
+                continue;
+            }
+            // Figure / table caption — a discrete anchor block (free win now;
+            // Phase 3 figure extraction attaches images to these anchors).
+            if (preg_match(self::CAPTION, $line)) {
+                $flush();
+                $blocks[] = array('type' => 'caption', 'text' => $line);
                 continue;
             }
             // Decimal section heading — the document's real skeleton. A TOC
@@ -352,6 +381,35 @@ class TextNormalizer
         }
         $first = $tokens[0];
         return (bool) (preg_match('/^\d{1,3}$/u', $first) || preg_match('/^\p{Lu}{2,5}$/u', $first));
+    }
+
+    /**
+     * Is this block dominated by mathematical notation the text layer likely
+     * degraded? Deliberately strict (under-report): requires several distinct
+     * math signals AND a high symbol density AND that symbols are not swamped by
+     * ordinary words, so a sentence merely mentioning "α" never trips it.
+     */
+    private static function isMathDense($text)
+    {
+        $t = trim($text);
+        $len = mb_strlen($t);
+        if ($len < 3 || $len > 600) {
+            return false;
+        }
+        // Greek, math-operator/arrow blocks, super/subscripts, common operators.
+        $signals = preg_match_all(
+            '/[\x{0370}-\x{03FF}\x{2070}-\x{209F}\x{2190}-\x{21FF}\x{2200}-\x{22FF}'
+            . '\x{2A00}-\x{2AFF}\x{00B1}\x{00D7}\x{00F7}\x{221A}\x{2211}\x{220F}'
+            . '\x{222B}\x{2260}\x{2264}\x{2265}\x{2248}\x{2208}\x{2207}\x{2202}\x{221E}=]/u',
+            $t
+        );
+        if ($signals < 5) {
+            return false;
+        }
+        $nonspace = preg_replace('/\s+/u', '', $t);
+        $ratio = $signals / max(1, mb_strlen($nonspace));
+        $words = preg_match_all('/\b\p{L}{3,}\b/u', $t);
+        return $ratio >= 0.12 && $words <= $signals;
     }
 
     /** A short, title-like numbered line (not a "label: long clause" list item). */

@@ -47,7 +47,7 @@ class KeyphraseModule extends AbstractModule
      */
     private function prepare($text)
     {
-        $text = preg_replace('/[\x{2022}\x{2023}\x{25AA}\x{25CF}\x{25E6}\x{2043}\x{2219}\x{00B7}\x{2713}\x{2714}\x{2717}\x{2718}\x{2610}\x{2611}\x{2612}]/u', ' ', (string) $text);
+        $text = preg_replace('/[\x{2022}\x{2023}\x{25AA}\x{25CF}\x{25E6}\x{2043}\x{2219}\x{00B7}\x{2713}\x{2714}\x{2717}\x{2718}\x{2610}\x{2611}\x{2612}\x{2700}-\x{27BF}\x{E000}-\x{F8FF}]/u', ' ', (string) $text);
         $text = preg_replace('/\R+/u', ' . ', $text);
         return $text;
     }

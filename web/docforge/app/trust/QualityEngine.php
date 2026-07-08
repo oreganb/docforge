@@ -14,7 +14,14 @@ namespace DocForge\Trust;
 class QualityEngine
 {
     /** Bullet / list glyphs that must never survive into analysis outputs. */
-    const GLYPHS = '/[\x{2022}\x{2023}\x{25AA}\x{25CF}\x{25E6}\x{2043}\x{2219}\x{00B7}\x{2713}\x{2714}\x{2717}\x{2718}\x{2610}\x{2611}\x{2612}]/u';
+    const GLYPHS = '/[\x{2022}\x{2023}\x{25AA}\x{25CF}\x{25E6}\x{2043}\x{2219}\x{00B7}\x{2713}\x{2714}\x{2717}\x{2718}\x{2610}\x{2611}\x{2612}\x{2700}-\x{27BF}\x{E000}-\x{F8FF}]/u';
+
+    /**
+     * Mojibake signature — a reinterpreted UTF-8 lead byte (U+00C2–U+00F4)
+     * hard against a continuation character. ParserRegistry repairs this at
+     * ingest; this is the trust-layer safety net that flags any residue.
+     */
+    const MOJIBAKE = '/[\x{00C2}-\x{00F4}][\x{0080}-\x{00BF}\x{20AC}\x{2122}\x{2018}\x{2019}\x{201C}\x{201D}\x{2013}\x{2014}\x{2026}]/u';
 
     /** Minimum extracted words per KB before we suspect body-content loss. */
     private static $wordsPerKbFloor = array('DOCX' => 10.0, 'PDF' => 2.0, 'TXT' => 20.0, 'MD' => 20.0);
@@ -51,6 +58,14 @@ class QualityEngine
         // leak into keyphrases or the summary (the run-one defect).
         foreach (self::contamination($ir) as $c) {
             $issues[] = $c;
+        }
+
+        // Encoding safety net: mojibake should have been repaired at ingest, so
+        // any residue is a genuine issue worth flagging rather than hiding.
+        $fullText = isset($ir['full_text']) ? (string) $ir['full_text'] : '';
+        if ($fullText !== '' && preg_match_all(self::MOJIBAKE, $fullText) >= 3) {
+            $issues[] = 'Character-encoding artefacts (mojibake, e.g. "Ã", "Â", "â€") remain in the '
+                . 'text — some accented or non-Latin characters may be misrendered.';
         }
 
         // Transparency: disclose page furniture removed before analysis.
@@ -99,6 +114,22 @@ class QualityEngine
             $notes[] = $flattenedTables . ' table region(s) detected in a flowed source (PDF/TXT) where cell '
                 . 'boundaries are not recoverable — rows are shown inline and marked "[table: structure not '
                 . 'preserved]" rather than presented as prose.';
+        }
+
+        // Degraded equations: a text-layer extraction cannot faithfully preserve
+        // mathematical notation. Declare it rather than shipping mangled symbols
+        // silently (interim until Phase 3 math-OCR).
+        $mathRegions = 0;
+        foreach (isset($ir['blocks']) ? $ir['blocks'] : array() as $b) {
+            if (!empty($b['math_degraded'])) {
+                $mathRegions++;
+            }
+        }
+        if ($mathRegions > 0) {
+            $notes[] = $mathRegions . ' math-dense region(s) detected where notation is degraded by '
+                . 'text-layer extraction (symbols/superscripts may be lost or reordered). Marked '
+                . '"[equation: notation degraded in text-layer extraction]"; faithful equation capture '
+                . 'arrives with Phase 3 math-OCR.';
         }
 
         // Declared source artefacts (extract-never-fix): if the source itself

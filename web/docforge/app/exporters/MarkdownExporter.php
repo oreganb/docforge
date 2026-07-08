@@ -155,6 +155,12 @@ class MarkdownExporter
                     }
                     $lines[] = '_' . $b['text'] . '_';
                     $lines[] = '';
+                } elseif ($b['type'] === 'caption') {
+                    if (end($lines) !== '') {
+                        $lines[] = '';
+                    }
+                    $lines[] = '**' . $b['text'] . '**';
+                    $lines[] = '';
                 } elseif ($b['type'] === 'table' && !empty($b['rows'])) {
                     if (end($lines) !== '') {
                         $lines[] = '';
@@ -235,6 +241,8 @@ class MarkdownExporter
                 $flags[] = 'content_loss';
             } elseif (strpos($i, 'contamination') !== false || strpos($i, 'glyph') !== false) {
                 $flags[] = 'contamination';
+            } elseif (strpos($i, 'mojibake') !== false || strpos($i, 'encoding artefact') !== false) {
+                $flags[] = 'mojibake';
             } elseif (strpos($i, 'very short') !== false) {
                 $flags[] = 'short_document';
             } elseif (strpos($i, 'summary could not') !== false) {
@@ -244,6 +252,9 @@ class MarkdownExporter
         foreach (isset($doc['quality']['notes']) ? $doc['quality']['notes'] : array() as $note) {
             if (stripos($note, 'extraction artefacts in the source') !== false) {
                 $flags[] = 'source_artefacts';
+            }
+            if (stripos($note, 'math-dense region') !== false) {
+                $flags[] = 'equation_degraded';
             }
         }
         return array_values(array_unique($flags));
