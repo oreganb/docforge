@@ -63,6 +63,16 @@ require __DIR__ . '/includes/header.php';
     </div>
   </div>
 
+  <?php if (!empty($items)): ?>
+  <div class="df-merge-bar" id="mergeBar" role="region" aria-label="Forge Merge">
+    <span class="df-merge-count" id="mergeCount">Select 2+ reports to merge</span>
+    <label class="df-merge-compact">
+      <input type="checkbox" id="mergeCompact"> Compact (context profile)
+    </label>
+    <button type="button" class="btn btn-forge" id="mergeBtn" disabled>Forge Merge</button>
+  </div>
+  <?php endif; ?>
+
   <div class="df-list" id="libList">
     <?php if (empty($items)): ?>
       <div class="df-empty">
@@ -77,6 +87,10 @@ require __DIR__ . '/includes/header.php';
           $date = date('j M Y', strtotime($row['created_at']));
         ?>
         <div class="df-row" data-report-id="<?php echo (int) $row['id']; ?>">
+          <label class="df-select" title="Select for merge">
+            <input type="checkbox" class="df-select-cb" value="<?php echo (int) $row['id']; ?>"
+                   aria-label="Select &ldquo;<?php echo htmlspecialchars($row['title'], ENT_QUOTES); ?>&rdquo; for merge">
+          </label>
           <div class="flex-grow-1">
             <span class="title"><?php echo htmlspecialchars($row['title']); ?></span>
             <span class="df-badge"><?php echo htmlspecialchars($row['source_type']); ?></span>
