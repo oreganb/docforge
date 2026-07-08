@@ -29,6 +29,11 @@ if (!$masterOk && !$jobOk) {
 ignore_user_abort(true);
 set_time_limit(0);
 @ini_set('max_execution_time', '0');
+// PDF/DOCX parsing (fonts, embedded images, ToUnicode CMaps) can spike memory
+// well past the 256 MB default on large or awkward files. Give the worker more
+// headroom; the shutdown handler below still fails the job cleanly if a
+// pathological file exceeds even this.
+@ini_set('memory_limit', '1024M');
 
 $payload = json_encode(array('ok' => true, 'dispatched' => true));
 if (function_exists('fastcgi_finish_request')) {

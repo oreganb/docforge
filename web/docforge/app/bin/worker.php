@@ -8,6 +8,10 @@ if (php_sapi_name() !== 'cli') {
     exit('CLI only');
 }
 
+// Parsing large/awkward PDFs (fonts, embedded images, ToUnicode CMaps) can
+// spike memory past the 256 MB default; give the worker headroom.
+@ini_set('memory_limit', '1024M');
+
 $jobId = isset($argv[1]) ? $argv[1] : '';
 if ($jobId === '') {
     fwrite(STDERR, "Usage: php worker.php <job_id>\n");

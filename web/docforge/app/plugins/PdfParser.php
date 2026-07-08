@@ -68,7 +68,12 @@ class PdfParser extends AbstractParser
         //    streams that the crude regex fallback cannot handle.
         try {
             if (class_exists('\\Smalot\\PdfParser\\Parser')) {
-                $parser = new \Smalot\PdfParser\Parser();
+                // Don't retain decoded image binaries in memory — DocForge does
+                // not analyse images in this phase, and image-heavy PDFs are a
+                // major memory sink. This leaves headroom for font/CMap parsing.
+                $parser = class_exists('\\Smalot\\PdfParser\\Config')
+                    ? new \Smalot\PdfParser\Parser(array(), $this->pdfConfig())
+                    : new \Smalot\PdfParser\Parser();
                 $pdf = $parser->parseFile($filePath);
                 $text = $pdf->getText();
                 if (is_string($text) && $this->isReadable($text)) {
@@ -85,6 +90,14 @@ class PdfParser extends AbstractParser
         // 3. Last resort: crude literal-string scan.
         $out = $this->extractTextPhp($filePath);
         return $this->isReadable($out) ? $out : '';
+    }
+
+    /** Memory-conscious smalot config: drop image binaries we never analyse. */
+    private function pdfConfig()
+    {
+        $config = new \Smalot\PdfParser\Config();
+        $config->setRetainImageContent(false);
+        return $config;
     }
 
     /** Read the embedded /Title from PDF metadata (often empty). */
