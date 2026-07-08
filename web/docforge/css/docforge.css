@@ -355,24 +355,107 @@ a:hover {
 .df-merge-bar .btn-forge {
   margin-left: auto;
 }
-.df-cite-group {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-.df-cite-working {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin: 0;
+
+/* Forge Cite — standalone page */
+.df-cite-page .df-cite-lead {
+  max-width: 36rem;
+  margin: 0 auto 1.5rem;
+  text-align: center;
   color: var(--df-slate);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+.df-cite-uploads {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+@media (max-width: 640px) {
+  .df-cite-uploads { grid-template-columns: 1fr; }
+}
+.df-cite-zone-title {
+  font-size: 0.95rem;
+  font-weight: 650;
+  margin: 0 0 0.15rem;
+  color: var(--df-ink);
+}
+.df-cite-zone-hint {
+  font-size: 0.8rem;
+  color: var(--df-slate);
+  margin: 0 0 0.5rem;
+}
+.df-drop-sm {
+  min-height: 9rem;
+  padding: 1rem;
+}
+.df-drop-sm .df-drop-label {
+  font-size: 0.88rem;
+  color: var(--df-slate);
+  margin: 0;
+}
+.df-cite-ref-list {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  width: 100%;
+  text-align: left;
   font-size: 0.85rem;
 }
-.df-cite-working select {
-  max-width: 14rem;
+.df-cite-ref-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid var(--df-border);
 }
-.df-merge-bar #citeBtn {
-  margin-left: 0;
+.df-cite-ref-list .clear {
+  border: none;
+  background: none;
+  font-size: 1.1rem;
+  line-height: 1;
+  color: var(--df-slate);
+  cursor: pointer;
+  padding: 0 0.25rem;
+}
+.df-cite-run {
+  display: block;
+  width: 100%;
+  max-width: 18rem;
+  margin: 0 auto 1.25rem;
+  padding: 0.55rem 1.5rem;
+  border-radius: 12px;
+}
+.df-cite-results-head {
+  text-align: left;
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--df-border);
+}
+.df-cite-results-title {
+  font-size: 1.15rem;
+  font-weight: 650;
+  margin: 0 0 0.35rem;
+}
+.df-cite-results-meta {
+  font-size: 0.85rem;
+  color: var(--df-slate);
+  margin: 0 0 0.75rem;
+}
+.df-cite-results-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.df-cite-report {
+  text-align: left;
+}
+.df-pill-active {
+  border-color: var(--df-forge);
+  background: color-mix(in srgb, var(--df-forge) 8%, var(--df-surface));
+  color: var(--df-forge);
+  font-weight: 600;
 }
 
 .df-badge {

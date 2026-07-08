@@ -17,12 +17,10 @@
   var list = document.getElementById('libList');
   if (!list || !tokenEl) return;
 
-  // ---- Forge Merge / Forge Cite: multi-select actions ----------------------
+  // ---- Forge Merge: multi-select + combined-download -----------------------
   var mergeBtn = document.getElementById('mergeBtn');
   var mergeCount = document.getElementById('mergeCount');
   var mergeCompact = document.getElementById('mergeCompact');
-  var citeBtn = document.getElementById('citeBtn');
-  var citeWorking = document.getElementById('citeWorking');
 
   function selectedIds() {
     var ids = [];
@@ -33,41 +31,14 @@
     return ids;
   }
 
-  function selectedRows() {
-    var rows = [];
-    var boxes = list.querySelectorAll('.df-select-cb:checked');
-    for (var i = 0; i < boxes.length; i++) {
-      var row = boxes[i].closest('.df-row');
-      var titleEl = row ? row.querySelector('.title') : null;
-      rows.push({ id: boxes[i].value, title: titleEl ? titleEl.textContent.trim() : boxes[i].value });
-    }
-    return rows;
-  }
-
-  function refreshBar() {
-    var rows = selectedRows();
-    var enough = rows.length >= 2;
-    if (mergeBtn) mergeBtn.disabled = !enough;
-    if (citeBtn) citeBtn.disabled = !enough;
+  function refreshMergeBar() {
+    if (!mergeBtn) return;
+    var ids = selectedIds();
+    mergeBtn.disabled = ids.length < 2;
     if (mergeCount) {
-      mergeCount.textContent = enough
-        ? rows.length + ' reports selected'
-        : 'Select 2+ reports to merge or cite';
-    }
-    if (citeWorking) {
-      citeWorking.disabled = !enough;
-      var prev = citeWorking.value;
-      citeWorking.innerHTML = '';
-      if (!enough) {
-        citeWorking.appendChild(new Option('Select 2+ reports…', ''));
-      } else {
-        for (var i = 0; i < rows.length; i++) {
-          citeWorking.appendChild(new Option(rows[i].title, rows[i].id));
-        }
-        // Preserve the prior choice if it is still selected, else default first.
-        var stillThere = rows.some(function (r) { return r.id === prev; });
-        citeWorking.value = stillThere ? prev : rows[0].id;
-      }
+      mergeCount.textContent = ids.length < 2
+        ? 'Select 2+ reports to merge'
+        : ids.length + ' reports selected';
     }
   }
 
@@ -75,7 +46,7 @@
     if (e.target && e.target.classList.contains('df-select-cb')) {
       var row = e.target.closest('.df-row');
       if (row) row.classList.toggle('is-selected', e.target.checked);
-      refreshBar();
+      refreshMergeBar();
     }
   });
 
@@ -92,30 +63,6 @@
       if (mergeCompact && mergeCompact.checked) {
         form.appendChild(hidden('profile', 'context'));
       }
-      for (var i = 0; i < ids.length; i++) {
-        form.appendChild(hidden('ids[]', ids[i]));
-      }
-      document.body.appendChild(form);
-      form.submit();
-      setTimeout(function () { document.body.removeChild(form); }, 1000);
-    });
-  }
-
-  if (citeBtn) {
-    citeBtn.addEventListener('click', function () {
-      var ids = selectedIds();
-      if (ids.length < 2) return;
-      var workingId = citeWorking ? citeWorking.value : '';
-      if (!workingId) {
-        window.alert('Choose which selected report is your working document.');
-        return;
-      }
-      var form = document.createElement('form');
-      form.method = 'POST';
-      form.action = 'api/cite.php';
-      form.style.display = 'none';
-      form.appendChild(hidden('csrf_token', tokenEl.value));
-      form.appendChild(hidden('working_id', workingId));
       for (var i = 0; i < ids.length; i++) {
         form.appendChild(hidden('ids[]', ids[i]));
       }

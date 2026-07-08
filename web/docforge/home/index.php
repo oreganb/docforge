@@ -31,6 +31,14 @@ require __DIR__ . '/includes/header.php';
       </div>
 
       <div class="df-quick-actions">
+        <a href="index.php" class="df-pill df-pill-active" aria-current="page">
+          <i class="bi bi-file-earmark-arrow-up" aria-hidden="true"></i>
+          Forge Convert
+        </a>
+        <a href="docforge_cite.php" class="df-pill">
+          <i class="bi bi-journal-check" aria-hidden="true"></i>
+          Forge Cite
+        </a>
         <a href="library.php" class="df-pill">
           <i class="bi bi-collection" aria-hidden="true"></i>
           Library

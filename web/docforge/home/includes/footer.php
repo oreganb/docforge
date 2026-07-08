@@ -3,6 +3,7 @@
     <span class="df-copy">&copy; 2026 Brian O&rsquo;Regan</span>
     <nav class="df-footer-links" aria-label="Footer">
       <a href="about.php">About</a>
+      <a href="docforge_cite.php">Forge Cite</a>
       <a href="library.php">Library</a>
     </nav>
   </div>
