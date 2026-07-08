@@ -46,7 +46,10 @@
   }
 
   drop.addEventListener('click', function (e) {
-    if (e.target.id !== 'clearFile') input.click();
+    // The Run button and the clear (×) live inside the drop box but must not
+    // re-open the file picker.
+    if (e.target.closest('#runBtn') || e.target.closest('#clearFile')) return;
+    input.click();
   });
   drop.addEventListener('keydown', function (e) {
     if (e.key === 'Enter' || e.key === ' ') {

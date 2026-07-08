@@ -3,36 +3,42 @@ require_once __DIR__ . '/includes/bootstrap-page.php';
 
 $pageTitle = 'Understand documents. Don\'t just parse them.';
 $activeNav = 'home';
-$mainClass = 'df-home';
+$mainClass = 'df-home df-home-claude';
 $csrfToken = \DocForge\Core\Csrf::token();
+$hideNav = true;
+$bodyClass = 'df-body-home';
 
 require __DIR__ . '/includes/header.php';
 ?>
 
 <main class="<?php echo $mainClass; ?>" id="view-home">
-  <div class="df-hero">
-    <img src="<?php echo $assetBase; ?>images/logo-full.png" alt="DocForge — anvil forging a document into Markdown">
-    <p class="df-tagline">Understand documents. Don't just parse them.</p>
-    <p class="df-sub">Drop any document. Get one trusted Markdown report.</p>
-  </div>
+  <div class="df-center">
+    <div class="df-hero">
+      <img class="df-logo" src="<?php echo $assetBase; ?>images/logo-full.png" alt="DocForge — anvil forging a document into Markdown">
+    </div>
 
-  <div id="state-idle">
-    <div class="df-drop" id="drop" tabindex="0" role="button" aria-label="Drag and drop a file, or press Enter to browse">
-      <i class="bi bi-file-earmark-arrow-up" aria-hidden="true"></i>
-      <p id="dropText">Drag &amp; drop a file, or click to browse</p>
-      <div class="df-file d-none" id="fileChip">
-        <i class="bi bi-file-earmark-text"></i>
-        <span id="fileName"></span><span class="size" id="fileSize"></span>
-        <button type="button" class="clear" id="clearFile" aria-label="Remove file">&times;</button>
+    <div id="state-idle" class="df-idle">
+      <div class="df-drop" id="drop" tabindex="0" role="button" aria-label="Drag and drop a file, or press Enter to browse">
+        <i class="bi bi-paperclip df-drop-icon" aria-hidden="true"></i>
+        <p id="dropText">Drag &amp; drop a file to analyse, or click to browse</p>
+        <div class="df-file d-none" id="fileChip">
+          <i class="bi bi-file-earmark-text"></i>
+          <span id="fileName"></span><span class="size" id="fileSize"></span>
+          <button type="button" class="clear" id="clearFile" aria-label="Remove file">&times;</button>
+        </div>
+        <input type="file" id="fileInput" class="d-none" accept=".pdf,.docx,.md,.txt,.markdown">
+        <button type="button" class="btn btn-forge df-run" id="runBtn" disabled>Run</button>
       </div>
-      <input type="file" id="fileInput" class="d-none" accept=".pdf,.docx,.md,.txt,.markdown">
-    </div>
-    <div class="text-center mt-4">
-      <button type="button" class="btn btn-forge btn-lg" id="runBtn" disabled>Run</button>
-    </div>
-  </div>
 
-  <div id="state-processing" class="d-none" aria-live="polite" aria-atomic="true">
+      <div class="df-quick-actions">
+        <a href="library.php" class="df-pill">
+          <i class="bi bi-collection" aria-hidden="true"></i>
+          Library
+        </a>
+      </div>
+    </div>
+
+    <div id="state-processing" class="d-none" aria-live="polite" aria-atomic="true">
     <div class="df-progress"><div class="bar" id="progBar"></div></div>
     <p class="df-status" id="progLine"><span class="phase">Forge Read</span> · 0% — starting</p>
   </div>

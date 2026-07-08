@@ -397,6 +397,133 @@ a:hover {
   color: var(--df-fail);
 }
 
+/* ── Claude-style home ─────────────────────────────────────────────── */
+.df-body-home {
+  background: #ffffff;
+}
+
+.df-home-claude {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 3rem;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.df-home-claude .df-center {
+  width: 100%;
+}
+
+.df-home-claude .df-hero {
+  margin: 0 0 1.75rem;
+}
+.df-home-claude .df-logo {
+  max-width: 360px;
+  width: 72%;
+  height: auto;
+}
+
+/* Drop zone styled as the Claude composer box */
+.df-home-claude .df-drop {
+  position: relative;
+  min-height: 150px;
+  border: 1px solid var(--df-border);
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 8px 28px rgba(16, 24, 40, 0.06);
+  padding: 1.75rem 1.5rem 3.75rem;
+  gap: 0.55rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.df-home-claude .df-drop:hover {
+  border-color: var(--df-slate-soft);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 12px 34px rgba(16, 24, 40, 0.09);
+}
+.df-home-claude .df-drop.dragover {
+  border: 1.5px dashed var(--df-forge);
+  background: rgba(249, 115, 22, 0.04);
+}
+.df-home-claude .df-drop-icon {
+  font-size: 1.6rem;
+  color: var(--df-slate-soft);
+}
+.df-home-claude .df-drop.dragover .df-drop-icon {
+  color: var(--df-forge);
+}
+.df-home-claude .df-drop #dropText {
+  font-size: 1rem;
+  color: var(--df-slate);
+}
+
+/* Run button pinned bottom-right, like the composer send button */
+.df-home-claude .df-drop .df-run {
+  position: absolute;
+  right: 0.85rem;
+  bottom: 0.85rem;
+  padding: 0.5rem 1.6rem;
+  border-radius: 12px;
+}
+.df-home-claude .df-drop .df-run:disabled {
+  display: none;
+}
+
+/* Quick-action pills (Library, and more later) */
+.df-quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.6rem;
+  margin-top: 1.1rem;
+}
+.df-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 1.1rem;
+  border: 1px solid var(--df-border);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--df-ink);
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+.df-pill:hover {
+  border-color: var(--df-forge);
+  color: var(--df-forge);
+  background: rgba(249, 115, 22, 0.04);
+}
+.df-pill .bi {
+  font-size: 1rem;
+  color: var(--df-slate);
+}
+.df-pill:hover .bi {
+  color: var(--df-forge);
+}
+
+/* Processing / result cards keep the composer width and centering */
+.df-home-claude #state-processing,
+.df-home-claude #state-complete,
+.df-home-claude #state-failed {
+  margin-top: 0.5rem;
+}
+
+@media (max-width: 576px) {
+  .df-home-claude .df-logo {
+    width: 82%;
+  }
+  .df-home-claude .df-drop .df-run {
+    position: static;
+    display: block;
+    width: 100%;
+    margin-top: 1rem;
+  }
+  .df-home-claude .df-drop {
+    padding-bottom: 1.5rem;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;
