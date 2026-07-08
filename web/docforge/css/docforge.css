@@ -364,6 +364,23 @@ a:hover {
   font-size: 0.85rem;
   padding: 0.35rem 0.95rem;
 }
+.df-del {
+  border: 1px solid var(--df-border);
+  color: var(--df-slate);
+  background: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.df-del:hover:not(:disabled) {
+  border-color: var(--df-fail);
+  color: var(--df-fail);
+  background: rgba(220, 38, 38, 0.05);
+}
+.df-del:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
 
 .df-empty {
   text-align: center;

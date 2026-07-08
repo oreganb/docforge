@@ -2,9 +2,11 @@
 require_once __DIR__ . '/includes/bootstrap-page.php';
 
 use DocForge\Core\Database;
+use DocForge\Core\Csrf;
 
 $pageTitle = 'Library';
 $activeNav = 'library';
+$csrfToken = Csrf::token();
 $pdo = Database::connect($config);
 
 $page = max(1, (int) (isset($_GET['page']) ? $_GET['page'] : 1));
@@ -51,6 +53,7 @@ function df_score_color($score) {
 require __DIR__ . '/includes/header.php';
 ?>
 
+<input type="hidden" id="csrfToken" value="<?php echo htmlspecialchars($csrfToken); ?>">
 <main class="df-lib" id="view-library">
   <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
     <h3 class="mb-0">Library</h3>
@@ -73,7 +76,7 @@ require __DIR__ . '/includes/header.php';
           $color = df_score_color($score);
           $date = date('j M Y', strtotime($row['created_at']));
         ?>
-        <div class="df-row">
+        <div class="df-row" data-report-id="<?php echo (int) $row['id']; ?>">
           <div class="flex-grow-1">
             <span class="title"><?php echo htmlspecialchars($row['title']); ?></span>
             <span class="df-badge"><?php echo htmlspecialchars($row['source_type']); ?></span>
@@ -95,6 +98,11 @@ require __DIR__ . '/includes/header.php';
                 <li><a class="dropdown-item" href="api/download.php?id=<?php echo (int) $row['id']; ?>&amp;fmt=json">.json</a></li>
               </ul>
             </div>
+            <button type="button" class="btn df-del" data-id="<?php echo (int) $row['id']; ?>"
+                    data-title="<?php echo htmlspecialchars($row['title'], ENT_QUOTES); ?>"
+                    aria-label="Delete report" title="Delete">
+              <i class="bi bi-trash" aria-hidden="true"></i>
+            </button>
           </div>
         </div>
       <?php endforeach; ?>
