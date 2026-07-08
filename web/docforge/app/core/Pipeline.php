@@ -208,8 +208,8 @@ class Pipeline
         $stmt->execute(array(
             $jobId,
             $meta['fingerprint'],
-            $doc['title'],
-            $meta['source_name'],
+            $this->clip($doc['title'], 255),
+            $this->clip($meta['source_name'], 255),
             $meta['source_type'],
             $meta['size_bytes'],
             $excerpt,
@@ -220,16 +220,30 @@ class Pipeline
         $reportId = (int) $this->pdo->lastInsertId();
 
         foreach (isset($doc['keyphrases']) ? $doc['keyphrases'] : array() as $kp) {
+            $phrase = $this->clip($kp['phrase'], 128);
+            if ($phrase === '') {
+                continue;
+            }
             $this->pdo->prepare(
                 'INSERT INTO df_report_keyphrases (report_id, phrase, score) VALUES (?, ?, ?)'
-            )->execute(array($reportId, $kp['phrase'], $kp['score']));
+            )->execute(array($reportId, $phrase, $kp['score']));
         }
         foreach (isset($doc['references']) ? $doc['references'] : array() as $ref) {
             $this->pdo->prepare(
                 'INSERT INTO df_report_references (report_id, raw, doi, url) VALUES (?, ?, ?, ?)'
-            )->execute(array($reportId, $ref['raw'], $ref['doi'], $ref['url']));
+            )->execute(array($reportId, $ref['raw'], $this->clip($ref['doi'], 128), $ref['url']));
         }
 
         return $reportId;
+    }
+
+    /** Truncate a string to a column length (multibyte-safe); preserves null. */
+    private function clip($value, $max)
+    {
+        if ($value === null) {
+            return null;
+        }
+        $value = (string) $value;
+        return mb_strlen($value) > $max ? mb_substr($value, 0, $max) : $value;
     }
 }

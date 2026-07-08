@@ -23,7 +23,11 @@ class KeyphraseModule extends AbstractModule
                 if ($i >= 15) {
                     break;
                 }
-                if (strlen($phrase) < 3) {
+                $len = mb_strlen($phrase);
+                // Skip fragments and RAKE artefacts (a real keyphrase is short;
+                // an over-long "phrase" is usually a run of text with no
+                // punctuation/stopwords to split on).
+                if ($len < 3 || $len > 80) {
                     continue;
                 }
                 $phrases[] = array('phrase' => $phrase, 'score' => round($score, 4));
