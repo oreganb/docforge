@@ -5,6 +5,7 @@
 docs/
 
 # Local-only working material, not needed in the public repo
+testing/
 testiing/
 template/
 
