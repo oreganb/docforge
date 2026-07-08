@@ -26,8 +26,21 @@ class SummaryModule extends AbstractModule
      */
     const FINDING_SIGNAL = '/%|\d{2,}|\b(therefore|thus|conclude[ds]?|concluded|significant(ly)?|increase[ds]?|decrease[ds]?|reduced|improved)\b/i';
 
+    /** @var array<int,string> normalised furniture lines removed upstream */
+    private $furniture = array();
+
     public function analyse(array $ir)
     {
+        // Cross-check source: a Key Finding must never echo a line the furniture
+        // detector removed (running headers/footers, metadata blocks).
+        $this->furniture = array();
+        foreach (isset($ir['removed_chrome']) ? $ir['removed_chrome'] : array() as $line) {
+            $norm = mb_strtolower(preg_replace('/\s+/', ' ', trim((string) $line)));
+            if (mb_strlen($norm) >= 8) {
+                $this->furniture[$norm] = true;
+            }
+        }
+
         // List-dominant documents (competency frameworks, checklists, spec
         // sheets) give sentence-ranking no signal — ranked prose assumptions
         // don't hold. Switch to a deterministic, structure-templated summary
@@ -95,7 +108,7 @@ class SummaryModule extends AbstractModule
         $short = $this->trimWords(implode(' ', $shortParts), 150);
         $extended = $this->trimWords(implode(' ', $ranked), 500);
         foreach ($shortParts as $sentence) {
-            if (preg_match(self::FINDING_SIGNAL, $sentence)) {
+            if (preg_match(self::FINDING_SIGNAL, $sentence) && $this->isGenuineFinding($sentence)) {
                 $findings[] = $sentence;
             }
         }
@@ -166,7 +179,7 @@ class SummaryModule extends AbstractModule
                 continue;
             }
             foreach ($this->sentences((string) $block['text']) as $sentence) {
-                if (preg_match(self::FINDING_SIGNAL, $sentence)) {
+                if (preg_match(self::FINDING_SIGNAL, $sentence) && $this->isGenuineFinding($sentence)) {
                     $findings[] = trim($sentence);
                     if (count($findings) >= 5) {
                         return $findings;
@@ -201,6 +214,29 @@ class SummaryModule extends AbstractModule
             6 => 'six', 7 => 'seven', 8 => 'eight', 9 => 'nine', 10 => 'ten',
             11 => 'eleven', 12 => 'twelve');
         return isset($words[$n]) ? $words[$n] : (string) $n;
+    }
+
+    /**
+     * A finding must be document substance, not chrome: it may not echo a line
+     * the furniture detector removed, nor read like a metadata/table row (a run
+     * of dates with no prose).
+     */
+    private function isGenuineFinding($sentence)
+    {
+        $norm = mb_strtolower(preg_replace('/\s+/', ' ', trim((string) $sentence)));
+        if ($norm === '') {
+            return false;
+        }
+        foreach ($this->furniture as $fLine => $_) {
+            if (mb_strpos($norm, $fLine) !== false) {
+                return false; // echoes removed furniture
+            }
+        }
+        // Multiple slashed dates ⇒ a table/revision row, not a finding.
+        if (preg_match_all('#\b\d{1,2}/\d{1,2}/\d{2,4}\b#', $sentence) >= 2) {
+            return false;
+        }
+        return true;
     }
 
     private function sentences($text)

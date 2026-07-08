@@ -58,12 +58,35 @@ class KnowledgeScore
 
     private static function scoreStructure(array $doc)
     {
-        $sections = isset($doc['sections']) ? count($doc['sections']) : 0;
+        $sectionList = isset($doc['sections']) ? $doc['sections'] : array();
+        $sections = count($sectionList);
         $blocks = isset($doc['blocks']) ? count($doc['blocks']) : 0;
         if ($blocks === 0) {
             return 30;
         }
-        return min(98, 50 + $sections * 8 + min(20, (int) ($blocks / 5)));
+        $score = min(98, 50 + $sections * 8 + min(20, (int) ($blocks / 5)));
+
+        // A credible skeleton distributes body content across its sections.
+        // When one "section" swallows the overwhelming majority of the words
+        // while the rest are near-empty, the heading detection has most likely
+        // mis-segmented the document — collapse confidence instead of rewarding
+        // it (the Test 2 lesson: don't let a weak dimension read strong).
+        if ($sections >= 4) {
+            $total = 0;
+            $max = 0;
+            foreach ($sectionList as $s) {
+                $wc = (int) (isset($s['word_count']) ? $s['word_count'] : 0);
+                $total += $wc;
+                if ($wc > $max) {
+                    $max = $wc;
+                }
+            }
+            if ($total > 0 && ($max / $total) >= 0.7) {
+                $score = min($score, 55);
+            }
+        }
+
+        return $score;
     }
 
     private static function scoreContent(array $doc)
