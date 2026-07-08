@@ -14,7 +14,7 @@ namespace DocForge\Trust;
 class QualityEngine
 {
     /** Bullet / list glyphs that must never survive into analysis outputs. */
-    const GLYPHS = '/[\x{2022}\x{2023}\x{25AA}\x{25CF}\x{25E6}\x{2043}\x{2219}\x{00B7}]/u';
+    const GLYPHS = '/[\x{2022}\x{2023}\x{25AA}\x{25CF}\x{25E6}\x{2043}\x{2219}\x{00B7}\x{2713}\x{2714}\x{2717}\x{2718}\x{2610}\x{2611}\x{2612}]/u';
 
     /** Minimum extracted words per KB before we suspect body-content loss. */
     private static $wordsPerKbFloor = array('DOCX' => 10.0, 'PDF' => 2.0, 'TXT' => 20.0, 'MD' => 20.0);

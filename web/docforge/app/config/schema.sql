@@ -1,4 +1,5 @@
 -- DocForge Phase 1 schema (SPECS §7) — df_ table prefix
+-- All tables are utf8mb4 so any valid Unicode (e.g. ✓, emoji) stores cleanly.
 
 CREATE TABLE IF NOT EXISTS df_jobs (
   id            CHAR(26) PRIMARY KEY,
@@ -10,7 +11,7 @@ CREATE TABLE IF NOT EXISTS df_jobs (
   error         TEXT NULL,
   created_at    DATETIME NOT NULL,
   updated_at    DATETIME NOT NULL
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS df_job_uploads (
   job_id        CHAR(26) PRIMARY KEY,
@@ -21,7 +22,7 @@ CREATE TABLE IF NOT EXISTS df_job_uploads (
   size_bytes    BIGINT UNSIGNED NOT NULL,
   mime          VARCHAR(128) NOT NULL,
   created_at    DATETIME NOT NULL
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS df_reports (
   id            INT AUTO_INCREMENT PRIMARY KEY,
@@ -38,7 +39,7 @@ CREATE TABLE IF NOT EXISTS df_reports (
   created_at    DATETIME NOT NULL,
   INDEX idx_fingerprint (fingerprint),
   FULLTEXT idx_search (title, excerpt)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS df_report_keyphrases (
   report_id INT NOT NULL,
@@ -46,7 +47,7 @@ CREATE TABLE IF NOT EXISTS df_report_keyphrases (
   score FLOAT NOT NULL,
   INDEX idx_report (report_id),
   INDEX idx_phrase (phrase)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS df_report_entities (
   report_id INT NOT NULL,
@@ -55,7 +56,7 @@ CREATE TABLE IF NOT EXISTS df_report_entities (
   count INT NOT NULL DEFAULT 1,
   INDEX idx_report (report_id),
   INDEX idx_surface (surface)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS df_report_references (
   report_id INT NOT NULL,
@@ -63,4 +64,4 @@ CREATE TABLE IF NOT EXISTS df_report_references (
   doi VARCHAR(128) NULL,
   url TEXT NULL,
   INDEX idx_report (report_id)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
