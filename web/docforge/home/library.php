@@ -63,7 +63,7 @@ require __DIR__ . '/includes/header.php';
   <div class="df-list" id="libList">
     <?php if (empty($items)): ?>
       <div class="df-empty">
-        <img src="<?php echo $assetBase; ?>images/logo-mark.png" alt="" style="opacity:.15;height:48px;margin-bottom:1rem;">
+        <img src="<?php echo $assetBase; ?>images/docforge_favicon.png" alt="" style="opacity:.15;height:48px;margin-bottom:1rem;">
         <p>No reports yet. <a href="index.php">Forge your first one.</a></p>
       </div>
     <?php else: ?>

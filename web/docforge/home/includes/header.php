@@ -29,7 +29,10 @@ $assetBase = '';
         <img src="<?php echo $assetBase; ?>images/docforge_favicon.png" alt="">
         DocForge
       </a>
-      <a href="library.php" class="nav-link<?php echo ($activeNav === 'library') ? ' active' : ''; ?>">Library</a>
+      <div class="df-nav-links d-flex align-items-center gap-3">
+        <a href="library.php" class="nav-link<?php echo ($activeNav === 'library') ? ' active' : ''; ?>">Library</a>
+        <a href="about.php" class="nav-link<?php echo ($activeNav === 'about') ? ' active' : ''; ?>">About</a>
+      </div>
     </div>
   </div>
 </nav>
