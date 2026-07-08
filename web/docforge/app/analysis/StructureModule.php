@@ -25,6 +25,14 @@ class StructureModule extends AbstractModule
                 );
             } elseif ($current !== null && ($block['type'] === 'paragraph' || $block['type'] === 'list')) {
                 $current['word_count'] += str_word_count($block['text']);
+            } elseif ($current !== null && $block['type'] === 'table' && !empty($block['rows'])) {
+                // Table cells hold body content (form-style DOCX); count them so
+                // section word counts stay honest (corpus #002 / #004 guard).
+                foreach ($block['rows'] as $row) {
+                    foreach ($row as $cell) {
+                        $current['word_count'] += str_word_count((string) $cell);
+                    }
+                }
             }
         }
         if ($current !== null) {

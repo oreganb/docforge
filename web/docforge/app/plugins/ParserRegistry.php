@@ -57,6 +57,14 @@ class ParserRegistry
                 if (isset($block['text'])) {
                     $ir['blocks'][$i]['text'] = self::toUtf8($block['text']);
                 }
+                // Table blocks carry rows of cells instead of a text string.
+                if (isset($block['rows']) && is_array($block['rows'])) {
+                    foreach ($block['rows'] as $r => $row) {
+                        foreach ((array) $row as $c => $cell) {
+                            $ir['blocks'][$i]['rows'][$r][$c] = self::toUtf8((string) $cell);
+                        }
+                    }
+                }
             }
         }
         return $ir;

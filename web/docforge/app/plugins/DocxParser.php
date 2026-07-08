@@ -54,25 +54,41 @@ class DocxParser extends AbstractParser
     private function walk($elements, array &$blocks, array &$full, $ref)
     {
         foreach ($elements as $element) {
-            // Tables: descend into every cell and keep collecting content.
+            // Tables: the parser already knows the row/column boundaries, so
+            // preserve them as a real Markdown table rather than flattening the
+            // grid to an ambiguous vertical run of lines (Phase 2 export
+            // principle: never flatten structure the pipeline already has).
             if ($element instanceof \PhpOffice\PhpWord\Element\Table) {
-                $rows = $element->getRows();
+                $tableRows = $element->getRows();
                 $maxCols = 0;
-                foreach ($rows as $row) {
+                foreach ($tableRows as $row) {
                     $maxCols = max($maxCols, count($row->getCells()));
                 }
-                // Multi-column grids (e.g. competency maps) carry meaning in the
-                // row/column relationship, which flattening destroys. Mark the
-                // site so the honesty stays local rather than presenting a
-                // matrix as an unlabelled vertical run of lines.
-                if ($maxCols >= 3) {
-                    $marker = '[table content, structure not preserved in this phase]';
-                    $blocks[] = $this->block('note', $marker, null, $ref);
-                    $full[] = $marker;
-                }
-                foreach ($rows as $row) {
-                    foreach ($row->getCells() as $cell) {
-                        $this->walk($cell->getElements(), $blocks, $full, $ref);
+                if ($maxCols >= 2) {
+                    $grid = array();
+                    foreach ($tableRows as $row) {
+                        $cells = array();
+                        foreach ($row->getCells() as $cell) {
+                            $ct = $this->cellText($cell);
+                            $cells[] = $ct;
+                            if ($ct !== '') {
+                                $full[] = $ct; // feed analysis (word count, keyphrases, TextRank)
+                            }
+                        }
+                        if (trim(implode('', $cells)) !== '') {
+                            $grid[] = $cells;
+                        }
+                    }
+                    if (!empty($grid)) {
+                        $blocks[] = array('type' => 'table', 'rows' => $grid, 'location' => $ref);
+                    }
+                } else {
+                    // Single-column tables are layout scaffolding, not data —
+                    // walk them as ordinary content.
+                    foreach ($tableRows as $row) {
+                        foreach ($row->getCells() as $cell) {
+                            $this->walk($cell->getElements(), $blocks, $full, $ref);
+                        }
                     }
                 }
                 continue;
@@ -127,6 +143,34 @@ class DocxParser extends AbstractParser
         // Collapse any doubled spaces introduced above.
         $text = preg_replace('/[ \t]{2,}/u', ' ', $text);
         return trim($text);
+    }
+
+    /**
+     * Flatten one table cell to a single line for a GFM cell. Multiple
+     * paragraphs (and nested tables) are joined with spaces since Markdown
+     * table cells cannot hold block content.
+     */
+    private function cellText($cell)
+    {
+        $parts = array();
+        foreach ($cell->getElements() as $el) {
+            if ($el instanceof \PhpOffice\PhpWord\Element\Table) {
+                foreach ($el->getRows() as $row) {
+                    foreach ($row->getCells() as $nested) {
+                        $t = $this->cellText($nested);
+                        if ($t !== '') {
+                            $parts[] = $t;
+                        }
+                    }
+                }
+                continue;
+            }
+            $t = $this->normalizeSpacing($this->inlineText($el));
+            if ($t !== '') {
+                $parts[] = $t;
+            }
+        }
+        return trim(implode(' ', $parts));
     }
 
     /** Flatten an inline element (Text / TextRun / Title / ListItem) to a string. */

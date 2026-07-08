@@ -62,14 +62,41 @@ class QualityEngine
                 . implode('", "', $shown) . '"' . (count($chrome) > 6 ? ' …' : '') . '.';
         }
 
+        // Tables: count any that were preserved with structure intact.
+        $tableCount = 0;
+        foreach (isset($ir['blocks']) ? $ir['blocks'] : array() as $b) {
+            if (isset($b['type']) && $b['type'] === 'table') {
+                $tableCount++;
+            }
+        }
+
         // FR-6 omitted-sections audit — name every dimension not analysed.
-        $notAnalysed = array('Entities', 'Tables', 'Figures / image analysis');
+        $notAnalysed = array('Entities', 'Figures / image analysis');
+        if ($tableCount === 0) {
+            $notAnalysed[] = 'Tables (none detected)';
+        }
         $refs = isset($ir['references']) ? count($ir['references']) : 0;
         if ($refs === 0) {
             $notAnalysed[] = 'References (none detected)';
         }
         $notes[] = 'Not analysed in this phase: ' . implode(', ', $notAnalysed)
             . '. These are excluded from the Knowledge Score (reported n/a) rather than scored as complete.';
+
+        if ($tableCount > 0) {
+            $notes[] = $tableCount . ' table(s) preserved as Markdown with row/column structure intact '
+                . '(cell boundaries retained from the source; not semantically analysed in this phase).';
+        }
+
+        // Declared source artefacts (extract-never-fix): if the source itself
+        // contains intra-word splits (e.g. "minimi ses"), we reproduce them
+        // verbatim and attribute the damage to the source rather than repairing.
+        $artefacts = self::sourceArtefacts($ir);
+        if (!empty($artefacts)) {
+            $examples = array_slice($artefacts, 0, 3);
+            $notes[] = 'Possible extraction artefacts in the source: ' . count($artefacts)
+                . ' intra-word split(s) detected (e.g. "' . implode('", "', $examples) . '"). '
+                . 'Reproduced verbatim per extract-never-fix; the source, not DocForge, introduced these.';
+        }
 
         // Numbering is a deliberate convention, not an error: section IDs are
         // fixed per FR-6 so a given dimension always has the same number across
@@ -150,6 +177,42 @@ class QualityEngine
         }
 
         return $found;
+    }
+
+    /**
+     * Detect intra-word split artefacts already present in the source text
+     * ("minimi ses", "utili sation", "revolutioni se"). Conservative by design:
+     * only a short allow-list of word-endings is treated as a split, so we
+     * under-report rather than falsely accuse legitimate two-word phrases.
+     *
+     * @return array<int,string> unique example fragments
+     */
+    private static function sourceArtefacts(array $ir)
+    {
+        $text = isset($ir['full_text']) ? (string) $ir['full_text'] : '';
+        if ($text === '') {
+            return array();
+        }
+        // A real word of 3+ lowercase letters, a single space, then a bare
+        // word-ending fragment that almost never stands alone as a word.
+        $suffix = 'se|ses|sing|sation|isation|ization|tion|sion|sions|ity|ities|ment|ments|ised|ized|ising|izing';
+        $stop = array(
+            'the', 'and', 'for', 'are', 'was', 'her', 'his', 'she', 'you', 'our',
+            'out', 'not', 'can', 'has', 'had', 'but', 'all', 'any', 'one', 'two',
+            'its', 'who', 'why', 'how', 'may', 'per', 'use', 'new',
+        );
+        if (!preg_match_all('/\b(\p{Ll}{3,})[ ](' . $suffix . ')\b/u', $text, $m, PREG_SET_ORDER)) {
+            return array();
+        }
+        $found = array();
+        foreach ($m as $hit) {
+            if (in_array(mb_strtolower($hit[1]), $stop, true)) {
+                continue;
+            }
+            $frag = $hit[1] . ' ' . $hit[2];
+            $found[mb_strtolower($frag)] = $frag;
+        }
+        return array_values($found);
     }
 
     /** @return array<int,string> */

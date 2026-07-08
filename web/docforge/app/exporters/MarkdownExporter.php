@@ -14,7 +14,7 @@ class MarkdownExporter
         $title = isset($doc['title']) ? $doc['title'] : 'Untitled';
         $score = isset($doc['quality']['knowledge_score']) ? $doc['quality']['knowledge_score'] : 0;
         $subs = isset($doc['quality']['sub_scores']) ? $doc['quality']['sub_scores'] : array();
-        $lines = array();
+        $lines = $this->frontmatter($doc, $title, $score);
         $lines[] = '# ' . $title;
         $lines[] = '';
         $lines[] = '## 1. Executive Summary';
@@ -155,6 +155,14 @@ class MarkdownExporter
                     }
                     $lines[] = '_' . $b['text'] . '_';
                     $lines[] = '';
+                } elseif ($b['type'] === 'table' && !empty($b['rows'])) {
+                    if (end($lines) !== '') {
+                        $lines[] = '';
+                    }
+                    foreach ($this->renderTable($b['rows']) as $tl) {
+                        $lines[] = $tl;
+                    }
+                    $lines[] = '';
                 } else {
                     $lines[] = $b['text'];
                     $lines[] = '';
@@ -162,6 +170,150 @@ class MarkdownExporter
             }
         }
         return implode("\n", $lines);
+    }
+
+    /**
+     * YAML frontmatter so a report can be triaged programmatically before a
+     * word is read. Triage-critical keys (class, score, flags) lead.
+     *
+     * @param array<string,mixed> $doc
+     * @return array<int,string>
+     */
+    private function frontmatter(array $doc, $title, $score)
+    {
+        $fp = isset($doc['fingerprint']) ? $doc['fingerprint'] : array();
+        $flags = $this->verdictFlags($doc);
+        $dup = (!empty($fp['duplicate_of']) && !empty($fp['duplicate_of']['report_id']))
+            ? (int) $fp['duplicate_of']['report_id'] : null;
+
+        $lines = array();
+        $lines[] = '---';
+        $lines[] = 'title: ' . $this->yaml($title);
+        $lines[] = 'doc_class: ' . $this->yaml($this->docClass($doc));
+        $lines[] = 'knowledge_score: ' . (int) $score;
+        $lines[] = 'verdict_flags: ' . (empty($flags)
+            ? '[]'
+            : '[' . implode(', ', $flags) . ']');
+        $lines[] = 'source: ' . $this->yaml(isset($fp['source_name']) ? $fp['source_name'] : '');
+        $lines[] = 'type: ' . $this->yaml($this->docType($doc));
+        $lines[] = 'pages: ' . $this->yaml(isset($fp['page_count']) ? (string) $fp['page_count'] : '1');
+        $lines[] = 'language: ' . $this->yaml(isset($fp['language']) ? $fp['language'] : 'unknown');
+        $lines[] = 'fingerprint: ' . $this->yaml(isset($fp['sha256']) ? $fp['sha256'] : '');
+        $lines[] = 'duplicate_of: ' . ($dup === null ? 'null' : $dup);
+        $lines[] = 'extracted_at: ' . $this->yaml(isset($fp['extracted_at']) ? $fp['extracted_at'] : gmdate('c'));
+        $lines[] = '---';
+        $lines[] = '';
+        return $lines;
+    }
+
+    /** Quote a scalar for YAML (double-quoted, minimal escaping). */
+    private function yaml($value)
+    {
+        $value = (string) $value;
+        $value = str_replace('\\', '\\\\', $value);
+        $value = str_replace('"', '\\"', $value);
+        $value = preg_replace('/\s*\R\s*/u', ' ', $value);
+        return '"' . $value . '"';
+    }
+
+    /**
+     * Short machine flags derived from the quality verdict, so a caller can
+     * "skip anything with content_loss" without parsing prose.
+     *
+     * @param array<string,mixed> $doc
+     * @return array<int,string>
+     */
+    private function verdictFlags(array $doc)
+    {
+        $flags = array();
+        foreach (isset($doc['quality']['issues']) ? $doc['quality']['issues'] : array() as $issue) {
+            $i = strtolower($issue);
+            if (strpos($i, 'no readable content') !== false) {
+                $flags[] = 'no_content';
+            } elseif (strpos($i, 'body content') !== false || strpos($i, 'content loss') !== false
+                || strpos($i, 'probable extraction failure') !== false || strpos($i, 'words recovered') !== false) {
+                $flags[] = 'content_loss';
+            } elseif (strpos($i, 'contamination') !== false || strpos($i, 'glyph') !== false) {
+                $flags[] = 'contamination';
+            } elseif (strpos($i, 'very short') !== false) {
+                $flags[] = 'short_document';
+            } elseif (strpos($i, 'summary could not') !== false) {
+                $flags[] = 'no_summary';
+            }
+        }
+        foreach (isset($doc['quality']['notes']) ? $doc['quality']['notes'] : array() as $note) {
+            if (stripos($note, 'extraction artefacts in the source') !== false) {
+                $flags[] = 'source_artefacts';
+            }
+        }
+        return array_values(array_unique($flags));
+    }
+
+    /** @param array<string,mixed> $doc */
+    private function docClass(array $doc)
+    {
+        $strategy = isset($doc['summaries']['strategy']) ? $doc['summaries']['strategy'] : '';
+        if ($strategy === 'structure-templated') {
+            return 'list-dominant';
+        }
+        foreach (isset($doc['blocks']) ? $doc['blocks'] : array() as $b) {
+            if (isset($b['type']) && $b['type'] === 'table') {
+                return 'form';
+            }
+        }
+        return 'prose';
+    }
+
+    /** @param array<string,mixed> $doc */
+    private function docType(array $doc)
+    {
+        if (!empty($doc['source']['type'])) {
+            return strtoupper($doc['source']['type']);
+        }
+        $mime = isset($doc['fingerprint']['mime']) ? $doc['fingerprint']['mime'] : '';
+        $map = array(
+            'application/pdf' => 'PDF',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'DOCX',
+            'text/markdown' => 'MD',
+            'text/plain' => 'TXT',
+        );
+        return isset($map[$mime]) ? $map[$mime] : 'unknown';
+    }
+
+    /**
+     * Render a grid as a GFM table. The first row is treated as the header.
+     *
+     * @param array<int,array<int,string>> $rows
+     * @return array<int,string>
+     */
+    private function renderTable(array $rows)
+    {
+        $cols = 0;
+        foreach ($rows as $r) {
+            $cols = max($cols, count($r));
+        }
+        if ($cols === 0) {
+            return array();
+        }
+        $out = array();
+        $header = array_pad($rows[0], $cols, '');
+        $out[] = '| ' . implode(' | ', array_map(array($this, 'cell'), $header)) . ' |';
+        $out[] = '| ' . implode(' | ', array_fill(0, $cols, '---')) . ' |';
+        $count = count($rows);
+        for ($i = 1; $i < $count; $i++) {
+            $row = array_pad($rows[$i], $cols, '');
+            $out[] = '| ' . implode(' | ', array_map(array($this, 'cell'), $row)) . ' |';
+        }
+        return $out;
+    }
+
+    /** Make a string safe for a single GFM table cell. */
+    private function cell($s)
+    {
+        $s = (string) $s;
+        $s = preg_replace('/\s*\R\s*/u', ' ', $s); // no line breaks inside a cell
+        $s = str_replace('|', '\\|', $s);          // escape column delimiter
+        return trim($s);
     }
 
     private function formatBytes($bytes)

@@ -181,6 +181,16 @@ class SummaryModule extends AbstractModule
         $sentences = array();
         foreach ($ir['blocks'] as $block) {
             $type = isset($block['type']) ? $block['type'] : '';
+            if ($type === 'table' && !empty($block['rows'])) {
+                foreach ($block['rows'] as $row) {
+                    foreach ((array) $row as $cell) {
+                        foreach ($this->sentences((string) $cell) as $sentence) {
+                            $sentences[] = trim($sentence);
+                        }
+                    }
+                }
+                continue;
+            }
             if ($type !== 'list' && $type !== 'paragraph') {
                 continue;
             }
