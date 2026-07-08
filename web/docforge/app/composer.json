@@ -1,0 +1,27 @@
+{
+    "name": "docforge/app",
+    "description": "DocForge document intelligence engine",
+    "type": "project",
+    "require": {
+        "php": ">=7.4",
+        "php-science/textrank": "^1.2",
+        "donatello-za/rake-php-plus": "^1.0",
+        "yooper/php-text-analysis": "^1.9",
+        "patrickschur/language-detection": "^5.3",
+        "davechild/textstatistics": "^1.0",
+        "phpoffice/phpword": "^0.18",
+        "phpoffice/phpspreadsheet": "^1.25",
+        "league/commonmark": "^2.4"
+    },
+    "autoload": {
+        "psr-4": {
+            "DocForge\\": ""
+        }
+    },
+    "config": {
+        "platform": {
+            "php": "7.4.33"
+        },
+        "platform-check": false
+    }
+}

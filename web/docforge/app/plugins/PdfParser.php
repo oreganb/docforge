@@ -1,0 +1,81 @@
+<?php
+
+namespace DocForge\Plugins;
+
+class PdfParser extends AbstractParser
+{
+    public function detect($bytes, $mime)
+    {
+        return strncmp($bytes, '%PDF', 4) === 0;
+    }
+
+    public function extract($filePath)
+    {
+        $text = $this->extractText($filePath);
+        if ($text === '') {
+            throw new \RuntimeException(
+                'This PDF has no extractable text layer. Scanned PDF support arrives in Phase 3.'
+            );
+        }
+        $blocks = array();
+        $paragraphs = preg_split('/\n\s*\n/', $text);
+        foreach ($paragraphs as $i => $para) {
+            $para = trim($para);
+            if ($para === '') {
+                continue;
+            }
+            if (strlen($para) < 100 && !preg_match('/[.!?]$/', $para)) {
+                $blocks[] = $this->block('heading', $para, 2, 'block:' . $i);
+            } else {
+                $blocks[] = $this->block('paragraph', $para, null, 'block:' . $i);
+            }
+        }
+        $pageCount = max(1, (int) preg_match_all('/\f/', $text) + 1);
+        return array(
+            'blocks' => $blocks,
+            'full_text' => $text,
+            'page_count' => $pageCount,
+        );
+    }
+
+    public function metadata($filePath)
+    {
+        return array('pages' => 1);
+    }
+
+    private function extractText($filePath)
+    {
+        $escaped = escapeshellarg($filePath);
+        if ($this->commandExists('pdftotext')) {
+            $out = shell_exec('pdftotext -layout ' . $escaped . ' - 2>/dev/null');
+            if (is_string($out) && trim($out) !== '') {
+                return $out;
+            }
+        }
+        return $this->extractTextPhp($filePath);
+    }
+
+    private function extractTextPhp($filePath)
+    {
+        $content = file_get_contents($filePath);
+        if ($content === false) {
+            return '';
+        }
+        $parts = array();
+        if (preg_match_all('/\(([^()\\\\]*(?:\\\\.[^()\\\\]*)*)\)/s', $content, $m)) {
+            foreach ($m[1] as $raw) {
+                $decoded = stripcslashes($raw);
+                if (preg_match('/[^\x00-\x1F\x7F-\xFF]/', $decoded)) {
+                    $parts[] = $decoded;
+                }
+            }
+        }
+        return implode("\n", $parts);
+    }
+
+    private function commandExists($cmd)
+    {
+        $which = shell_exec('command -v ' . escapeshellarg($cmd) . ' 2>/dev/null');
+        return is_string($which) && trim($which) !== '';
+    }
+}

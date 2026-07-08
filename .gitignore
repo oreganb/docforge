@@ -1,0 +1,11 @@
+.DS_Store
+**/.DS_Store
+
+web/docforge/app/vendor/
+web/docforge/app/config/config.local.php
+web/docforge/storage/uploads-tmp/*
+web/docforge/storage/reports/*
+web/docforge/storage/logs/*
+!web/docforge/storage/uploads-tmp/.gitkeep
+!web/docforge/storage/reports/.gitkeep
+!web/docforge/storage/logs/.gitkeep
