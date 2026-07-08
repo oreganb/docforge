@@ -13,26 +13,39 @@ class KnowledgeScore
      */
     public static function compute(array $doc)
     {
-        $structure = self::scoreStructure($doc);
-        $content = self::scoreContent($doc);
-        $refs = self::scoreReferences($doc);
-        $tables = 70; // Phase 1: no table extraction yet
-
-        $overall = (int) round(
-            $structure * 0.25 +
-            $content * 0.35 +
-            $refs * 0.20 +
-            $tables * 0.20
+        // Dimensions that produced no content report n/a and drop out of the
+        // composite (their weight is redistributed), rather than being scored
+        // as a misleading default. Phase 1 has no table extraction, and
+        // references only apply to documents that actually cite sources.
+        $dims = array(
+            'structure' => array('score' => self::scoreStructure($doc), 'weight' => 0.25),
+            'content' => array('score' => self::scoreContent($doc), 'weight' => 0.35),
         );
+
+        $refCount = isset($doc['references']) ? count($doc['references']) : 0;
+        $dims['references'] = array(
+            'score' => $refCount > 0 ? self::scoreReferences($doc) : null,
+            'weight' => 0.20,
+        );
+        $dims['tables'] = array('score' => null, 'weight' => 0.20);
+
+        $weighted = 0.0;
+        $weightSum = 0.0;
+        $subs = array();
+        foreach ($dims as $name => $d) {
+            if ($d['score'] === null) {
+                $subs[$name] = 'n/a';
+                continue;
+            }
+            $subs[$name] = (int) $d['score'];
+            $weighted += $d['score'] * $d['weight'];
+            $weightSum += $d['weight'];
+        }
+        $overall = $weightSum > 0 ? (int) round($weighted / $weightSum) : 0;
 
         return array(
             'knowledge_score' => min(100, max(0, $overall)),
-            'sub_scores' => array(
-                'structure' => $structure,
-                'content' => $content,
-                'references' => $refs,
-                'tables' => $tables,
-            ),
+            'sub_scores' => $subs,
         );
     }
 

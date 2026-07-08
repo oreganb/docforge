@@ -18,10 +18,20 @@ class StatsModule extends AbstractModule
         $wordCount = str_word_count($text);
         $readingMinutes = max(1, (int) ceil($wordCount / 200));
 
+        // Readability formulae need sentence boundaries. Normalised text puts
+        // each bullet/heading on its own line with no terminal punctuation, so
+        // treat every line as a sentence before scoring — otherwise the score
+        // collapses to 0 on list-dominant documents.
+        $prose = trim(preg_replace('/\R+/u', '. ', $text));
+        if ($prose !== '' && !preg_match('/[.!?]$/', $prose)) {
+            $prose .= '.';
+        }
+        $sentenceCount = max(1, preg_match_all('/[.!?]+/', $prose));
+
         $flesch = 0.0;
         try {
             $stats = new TextStatistics();
-            $flesch = round($stats->fleschKincaidReadingEase($text), 1);
+            $flesch = round($stats->fleschKincaidReadingEase($prose), 1);
         } catch (\Throwable $e) {
             $flesch = 0.0;
         }
@@ -32,7 +42,7 @@ class StatsModule extends AbstractModule
             'statistics' => array(
                 'word_count' => $wordCount,
                 'character_count' => strlen($text),
-                'sentence_count' => max(1, preg_match_all('/[.!?]+/', $text)),
+                'sentence_count' => $sentenceCount,
                 'reading_time_minutes' => $readingMinutes,
                 'flesch_reading_ease' => $flesch,
                 'language' => $language,

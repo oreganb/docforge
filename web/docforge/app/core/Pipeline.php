@@ -81,6 +81,28 @@ class Pipeline
                     }
                     $plugin->cleanup();
                 } elseif ($stage['stage'] === 'structural analysis' && $ir !== null) {
+                    // Pre-process before any analysis. PDF/plain-text extraction
+                    // loses structure and leaks page furniture, so re-segment from
+                    // text. DOCX/Markdown already carry reliable heading blocks
+                    // (styles / #), so keep those as-is.
+                    $parser = isset($ir['parser']) ? $ir['parser'] : '';
+                    $unreliable = strpos($parser, 'PdfParser') !== false
+                        || strpos($parser, 'TxtParser') !== false;
+                    if ($unreliable) {
+                        $norm = TextNormalizer::normalize(
+                            isset($ir['full_text']) ? $ir['full_text'] : '',
+                            isset($ir['blocks']) ? $ir['blocks'] : array()
+                        );
+                        $ir['full_text'] = $norm['full_text'];
+                        $ir['blocks'] = $norm['blocks'];
+                        $ir['removed_chrome'] = $norm['removed_chrome'];
+                    }
+                    // Derive list-dominance + heading labels from whatever blocks
+                    // we ended up with, so the summariser can pick its strategy.
+                    $blocks = isset($ir['blocks']) ? $ir['blocks'] : array();
+                    $ir['list_ratio'] = TextNormalizer::listRatio($blocks);
+                    $ir['headings'] = TextNormalizer::headingTitles($blocks);
+
                     $mod = new StructureModule();
                     $ir = array_merge($ir, $mod->analyse($ir));
                 } elseif ($stage['stage'] === 'identifying references' && $ir !== null) {
@@ -150,6 +172,11 @@ class Pipeline
     {
         $quality = QualityEngine::assess($ir);
         $scores = KnowledgeScore::compute($ir);
+        $pageCount = isset($ir['page_count']) ? max(1, (int) $ir['page_count']) : 1;
+        $pages = array();
+        for ($p = 1; $p <= $pageCount; $p++) {
+            $pages[] = array('number' => $p);
+        }
         return array(
             'version' => $this->config['app']['knowledge_layer_version'],
             'title' => $title,
@@ -159,12 +186,14 @@ class Pipeline
                 'mime' => $meta['mime'],
                 'source_name' => $meta['source_name'],
                 'language' => isset($ir['language']) ? $ir['language'] : 'en',
+                'page_count' => $pageCount,
+                'extracted_at' => gmdate('c'),
             ),
             'source' => array(
                 'type' => $meta['source_type'],
                 'name' => $meta['source_name'],
             ),
-            'pages' => array(array('number' => 1)),
+            'pages' => $pages,
             'blocks' => isset($ir['blocks']) ? $ir['blocks'] : array(),
             'sections' => isset($ir['sections']) ? $ir['sections'] : array(),
             'tables' => array(),

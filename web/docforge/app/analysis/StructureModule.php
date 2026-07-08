@@ -23,7 +23,7 @@ class StructureModule extends AbstractModule
                     'level' => isset($block['level']) ? $block['level'] : 2,
                     'word_count' => 0,
                 );
-            } elseif ($current !== null && $block['type'] === 'paragraph') {
+            } elseif ($current !== null && ($block['type'] === 'paragraph' || $block['type'] === 'list')) {
                 $current['word_count'] += str_word_count($block['text']);
             }
         }

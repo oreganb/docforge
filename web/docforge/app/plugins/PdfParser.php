@@ -4,6 +4,9 @@ namespace DocForge\Plugins;
 
 class PdfParser extends AbstractParser
 {
+    /** @var int Page count discovered during extraction (smalot is authoritative). */
+    private $pageCount = 0;
+
     public function detect($bytes, $mime)
     {
         return strncmp($bytes, '%PDF', 4) === 0;
@@ -30,7 +33,10 @@ class PdfParser extends AbstractParser
                 $blocks[] = $this->block('paragraph', $para, null, 'block:' . $i);
             }
         }
-        $pageCount = max(1, (int) preg_match_all('/\f/', $text) + 1);
+        // Prefer smalot's authoritative page count; fall back to form-feeds.
+        $pageCount = $this->pageCount > 0
+            ? $this->pageCount
+            : max(1, (int) preg_match_all('/\f/', $text) + 1);
         return array(
             'blocks' => $blocks,
             'full_text' => $text,
@@ -62,6 +68,8 @@ class PdfParser extends AbstractParser
                 $pdf = $parser->parseFile($filePath);
                 $text = $pdf->getText();
                 if (is_string($text) && $this->isReadable($text)) {
+                    $pages = $pdf->getPages();
+                    $this->pageCount = is_array($pages) ? count($pages) : 0;
                     return $text;
                 }
             }

@@ -13,7 +13,7 @@ class KeyphraseModule extends AbstractModule
 
     public function analyse(array $ir)
     {
-        $text = $ir['full_text'];
+        $text = $this->prepare($ir['full_text']);
         $phrases = array();
         try {
             $rake = RakePlus::create($text, 'en_US');
@@ -37,6 +37,19 @@ class KeyphraseModule extends AbstractModule
             $phrases = $this->fallback($text);
         }
         return array('keyphrases' => $phrases);
+    }
+
+    /**
+     * Treat every line (bullet, heading, paragraph) as its own unit so RAKE
+     * phrases never straddle a bullet or section boundary — the root cause of
+     * contaminated keyphrases like "channels 2" (page/section number bleed) and
+     * "services • manages projects" (cross-bullet runs). Also strips list glyphs.
+     */
+    private function prepare($text)
+    {
+        $text = preg_replace('/[\x{2022}\x{2023}\x{25AA}\x{25CF}\x{25E6}\x{2043}\x{2219}\x{00B7}]/u', ' ', (string) $text);
+        $text = preg_replace('/\R+/u', ' . ', $text);
+        return $text;
     }
 
     private function fallback($text)

@@ -32,7 +32,8 @@ class MarkdownExporter
             $lines[] = '| Dimension | Score |';
             $lines[] = '|---|---:|';
             foreach ($subs as $k => $v) {
-                $lines[] = '| ' . ucfirst($k) . ' | ' . $v . '% |';
+                $val = is_numeric($v) ? $v . '%' : 'n/a';
+                $lines[] = '| ' . ucfirst($k) . ' | ' . $val . ' |';
             }
             $lines[] = '';
         }
@@ -41,18 +42,32 @@ class MarkdownExporter
         $fp = isset($doc['fingerprint']) ? $doc['fingerprint'] : array();
         $lines[] = '- **SHA-256:** `' . (isset($fp['sha256']) ? $fp['sha256'] : '') . '`';
         $lines[] = '- **Source:** ' . (isset($fp['source_name']) ? $fp['source_name'] : '');
+        $lines[] = '- **MIME:** ' . (isset($fp['mime']) ? $fp['mime'] : 'unknown');
         $lines[] = '- **Size:** ' . $this->formatBytes(isset($fp['size_bytes']) ? $fp['size_bytes'] : 0);
+        $lines[] = '- **Pages:** ' . (isset($fp['page_count']) ? $fp['page_count'] : 1);
         $lines[] = '- **Language:** ' . (isset($fp['language']) ? $fp['language'] : 'unknown');
+        $lines[] = '- **Extracted:** ' . (isset($fp['extracted_at']) ? $fp['extracted_at'] : gmdate('c'));
         $lines[] = '';
         $lines[] = '## 4. Quality Verdict';
         $lines[] = '';
         $lines[] = isset($doc['quality']['verdict']) ? $doc['quality']['verdict'] : '';
+        $lines[] = '';
         if (!empty($doc['quality']['issues'])) {
+            $lines[] = '**Issues**';
+            $lines[] = '';
             foreach ($doc['quality']['issues'] as $issue) {
                 $lines[] = '- ' . $issue;
             }
+            $lines[] = '';
         }
-        $lines[] = '';
+        if (!empty($doc['quality']['notes'])) {
+            $lines[] = '**Transparency notes**';
+            $lines[] = '';
+            foreach ($doc['quality']['notes'] as $note) {
+                $lines[] = '- _' . $note . '_';
+            }
+            $lines[] = '';
+        }
         if (!empty($doc['sections'])) {
             $lines[] = '## 5. Contents';
             $lines[] = '';
@@ -110,12 +125,18 @@ class MarkdownExporter
             $lines[] = '';
             foreach ($doc['blocks'] as $b) {
                 if ($b['type'] === 'heading') {
+                    if (end($lines) !== '') {
+                        $lines[] = ''; // blank line before a heading (Markdown requirement)
+                    }
                     $lvl = isset($b['level']) ? min(6, $b['level'] + 1) : 3;
                     $lines[] = str_repeat('#', $lvl) . ' ' . $b['text'];
+                    $lines[] = '';
+                } elseif ($b['type'] === 'list') {
+                    $lines[] = '- ' . $b['text'];
                 } else {
                     $lines[] = $b['text'];
+                    $lines[] = '';
                 }
-                $lines[] = '';
             }
         }
         return implode("\n", $lines);
