@@ -26,7 +26,7 @@ class TextNormalizer
     {
         $lines = preg_split('/\r\n|\r|\n/', (string) $rawText);
         $count = count($lines);
-        $removed = array();
+        $removedMeta = array(); // list of array{idx:int,text:string,num:bool}
         $drop = array_fill(0, $count, false);
 
         // Pass 1 — strip page numbers and the running header/footer that hugs them.
@@ -35,9 +35,9 @@ class TextNormalizer
                 continue;
             }
             $drop[$i] = true;
-            $removed[] = trim($lines[$i]);
-            self::dropAdjacentChrome($lines, $drop, $removed, $i, -1); // footer above the number
-            self::dropAdjacentChrome($lines, $drop, $removed, $i, 1);  // header below the number
+            $removedMeta[] = array('idx' => $i, 'text' => trim($lines[$i]), 'num' => true);
+            self::dropAdjacentChrome($lines, $drop, $removedMeta, $i, -1); // footer above the number
+            self::dropAdjacentChrome($lines, $drop, $removedMeta, $i, 1);  // header below the number
         }
 
         // Pass 2 — classify surviving lines into blocks, merging wrapped lines.
@@ -86,17 +86,23 @@ class TextNormalizer
             $blocks = $rawBlocks;
         }
 
+        $removed = array();
+        foreach ($removedMeta as $m) {
+            $removed[] = $m['text'];
+        }
+
         return array(
             'full_text' => self::rebuildText($blocks),
             'blocks' => $blocks,
             'list_ratio' => self::listRatio($blocks),
             'headings' => self::headingTitles($blocks),
             'removed_chrome' => $removed,
+            'header' => self::headerCandidate($removedMeta),
         );
     }
 
     /** Walk outward from a page-number line removing short header/footer lines. */
-    private static function dropAdjacentChrome(array $lines, array &$drop, array &$removed, $from, $dir)
+    private static function dropAdjacentChrome(array $lines, array &$drop, array &$removedMeta, $from, $dir)
     {
         $count = count($lines);
         $seen = 0;
@@ -115,10 +121,45 @@ class TextNormalizer
                 break;
             }
             $drop[$j] = true;
-            $removed[] = $t;
+            $removedMeta[] = array('idx' => $j, 'text' => $t, 'num' => false);
             $seen++;
             $j += $dir;
         }
+    }
+
+    /**
+     * Reconstruct the running-header text (document identity) from the removed
+     * furniture. It is furniture in the body but the best title candidate, so
+     * we rebuild it in reading order, dropping page numbers and duplicates.
+     */
+    private static function headerCandidate(array $removedMeta)
+    {
+        $seen = array();
+        $items = array();
+        foreach ($removedMeta as $m) {
+            if (!empty($m['num'])) {
+                continue; // page number, not header text
+            }
+            $key = mb_strtolower(preg_replace('/\s+/', ' ', $m['text']));
+            if ($key === '' || isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $items[] = $m;
+        }
+        usort($items, function ($a, $b) {
+            return $a['idx'] - $b['idx'];
+        });
+        $parts = array();
+        foreach ($items as $m) {
+            $parts[] = $m['text'];
+        }
+        $header = trim(implode(' ', $parts));
+        // Must look like a title: has letters and reasonable length.
+        if (mb_strlen($header) < 5 || !preg_match('/\p{L}/u', $header)) {
+            return '';
+        }
+        return $header;
     }
 
     /** @param array $blocks */

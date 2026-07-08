@@ -7,6 +7,9 @@ class PdfParser extends AbstractParser
     /** @var int Page count discovered during extraction (smalot is authoritative). */
     private $pageCount = 0;
 
+    /** @var string Embedded document title from PDF metadata, if any. */
+    private $metaTitle = '';
+
     public function detect($bytes, $mime)
     {
         return strncmp($bytes, '%PDF', 4) === 0;
@@ -41,6 +44,7 @@ class PdfParser extends AbstractParser
             'blocks' => $blocks,
             'full_text' => $text,
             'page_count' => $pageCount,
+            'meta_title' => $this->metaTitle,
         );
     }
 
@@ -70,6 +74,7 @@ class PdfParser extends AbstractParser
                 if (is_string($text) && $this->isReadable($text)) {
                     $pages = $pdf->getPages();
                     $this->pageCount = is_array($pages) ? count($pages) : 0;
+                    $this->metaTitle = $this->readMetaTitle($pdf);
                     return $text;
                 }
             }
@@ -80,6 +85,21 @@ class PdfParser extends AbstractParser
         // 3. Last resort: crude literal-string scan.
         $out = $this->extractTextPhp($filePath);
         return $this->isReadable($out) ? $out : '';
+    }
+
+    /** Read the embedded /Title from PDF metadata (often empty). */
+    private function readMetaTitle($pdf)
+    {
+        try {
+            $details = $pdf->getDetails();
+            if (isset($details['Title'])) {
+                $title = is_array($details['Title']) ? implode(' ', $details['Title']) : $details['Title'];
+                return trim((string) $title);
+            }
+        } catch (\Throwable $e) {
+            // ignore
+        }
+        return '';
     }
 
     /** Heuristic: is this extracted text real prose rather than binary garbage? */

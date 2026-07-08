@@ -96,6 +96,7 @@ class Pipeline
                         $ir['full_text'] = $norm['full_text'];
                         $ir['blocks'] = $norm['blocks'];
                         $ir['removed_chrome'] = $norm['removed_chrome'];
+                        $ir['header'] = $norm['header'];
                     }
                     // Derive list-dominance + heading labels from whatever blocks
                     // we ended up with, so the summariser can pick its strategy.
@@ -150,9 +151,24 @@ class Pipeline
         Events::emit('StageCompleted', array('job_id' => $jobId, 'stage' => $stage));
     }
 
-    /** @param array<string,mixed> $ir */
+    /**
+     * Title heuristic, best identity first: embedded document-metadata title →
+     * repeated running header (furniture in the body but the document's name) →
+     * first heading → filename. Avoids titling a report "1. Leadership".
+     *
+     * @param array<string,mixed> $ir
+     */
     private function deriveTitle(array $ir, $sourceName)
     {
+        // 1. Embedded metadata title (PDF /Title, DOCX core properties).
+        if (!empty($ir['meta_title']) && $this->looksLikeTitle($ir['meta_title'])) {
+            return mb_substr(trim($ir['meta_title']), 0, 255);
+        }
+        // 2. Running header banner reconstructed from removed page furniture.
+        if (!empty($ir['header']) && $this->looksLikeTitle($ir['header'])) {
+            return mb_substr(trim($ir['header']), 0, 255);
+        }
+        // 3. First real heading in the body.
         if (!empty($ir['blocks'])) {
             foreach ($ir['blocks'] as $b) {
                 if ($b['type'] === 'heading' && strlen($b['text']) > 3) {
@@ -160,7 +176,24 @@ class Pipeline
                 }
             }
         }
+        // 4. Fall back to the uploaded filename.
         return pathinfo($sourceName, PATHINFO_FILENAME);
+    }
+
+    /** Reject junk metadata (empty, numeric-only, or "Microsoft Word - ..."). */
+    private function looksLikeTitle($value)
+    {
+        $value = trim((string) $value);
+        if (mb_strlen($value) < 3 || mb_strlen($value) > 200) {
+            return false;
+        }
+        if (!preg_match('/\p{L}/u', $value)) {
+            return false; // no letters — e.g. a stray page number
+        }
+        if (preg_match('/^microsoft word\s*-/i', $value)) {
+            return false; // authoring-tool placeholder, not a real title
+        }
+        return true;
     }
 
     /**
@@ -188,6 +221,7 @@ class Pipeline
                 'language' => isset($ir['language']) ? $ir['language'] : 'en',
                 'page_count' => $pageCount,
                 'extracted_at' => gmdate('c'),
+                'duplicate_of' => $this->findDuplicate($meta['fingerprint']),
             ),
             'source' => array(
                 'type' => $meta['source_type'],
@@ -264,6 +298,32 @@ class Pipeline
         }
 
         return $reportId;
+    }
+
+    /**
+     * FR-2 duplicate surfacing: find the earliest prior report with the same
+     * content fingerprint, so a re-run is self-documenting.
+     *
+     * @return array{report_id:int,created_at:string}|null
+     */
+    private function findDuplicate($fingerprint)
+    {
+        try {
+            $stmt = $this->pdo->prepare(
+                'SELECT id, created_at FROM df_reports WHERE fingerprint = ? ORDER BY created_at ASC, id ASC LIMIT 1'
+            );
+            $stmt->execute(array($fingerprint));
+            $row = $stmt->fetch(\PDO::FETCH_ASSOC);
+            if ($row) {
+                return array(
+                    'report_id' => (int) $row['id'],
+                    'created_at' => (string) $row['created_at'],
+                );
+            }
+        } catch (\Throwable $e) {
+            // Non-fatal: duplicate surfacing is advisory only.
+        }
+        return null;
     }
 
     /** Truncate a string to a column length (multibyte-safe); preserves null. */

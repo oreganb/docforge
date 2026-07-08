@@ -71,6 +71,13 @@ class QualityEngine
         $notes[] = 'Not analysed in this phase: ' . implode(', ', $notAnalysed)
             . '. These are excluded from the Knowledge Score (reported n/a) rather than scored as complete.';
 
+        // Numbering is a deliberate convention, not an error: section IDs are
+        // fixed per FR-6 so a given dimension always has the same number across
+        // reports. Unproduced sections (e.g. 10–12) are skipped, not renumbered.
+        $notes[] = 'Section numbers follow the fixed FR-6 scheme so each dimension keeps a stable ID '
+            . 'across reports; sections not produced in this phase (e.g. 10–12) are skipped by design '
+            . 'rather than renumbered.';
+
         if (!empty($issues)) {
             $verdict = 'Extraction completed with ' . count($issues) . ' quality issue(s)'
                 . (!empty($notes) ? ' and ' . count($notes) . ' transparency note(s)' : '') . ' — see below.';

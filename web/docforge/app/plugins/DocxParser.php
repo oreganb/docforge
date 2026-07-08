@@ -24,7 +24,22 @@ class DocxParser extends AbstractParser
             'blocks' => $blocks,
             'full_text' => implode("\n", $full),
             'page_count' => max(1, count($phpWord->getSections())),
+            'meta_title' => $this->readMetaTitle($phpWord),
         );
+    }
+
+    /** Read the embedded document title from DOCX core properties, if set. */
+    private function readMetaTitle($phpWord)
+    {
+        try {
+            if (method_exists($phpWord, 'getDocInfo')) {
+                $title = $phpWord->getDocInfo()->getTitle();
+                return trim((string) $title);
+            }
+        } catch (\Throwable $e) {
+            // ignore
+        }
+        return '';
     }
 
     /**

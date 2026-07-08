@@ -47,6 +47,13 @@ class MarkdownExporter
         $lines[] = '- **Pages:** ' . (isset($fp['page_count']) ? $fp['page_count'] : 1);
         $lines[] = '- **Language:** ' . (isset($fp['language']) ? $fp['language'] : 'unknown');
         $lines[] = '- **Extracted:** ' . (isset($fp['extracted_at']) ? $fp['extracted_at'] : gmdate('c'));
+        if (!empty($fp['duplicate_of']) && !empty($fp['duplicate_of']['report_id'])) {
+            $dup = $fp['duplicate_of'];
+            $when = isset($dup['created_at']) ? substr($dup['created_at'], 0, 10) : '';
+            $lines[] = '- **Duplicate:** previously processed'
+                . ($when !== '' ? ' on ' . $when : '')
+                . ' as report #' . $dup['report_id'];
+        }
         $lines[] = '';
         $lines[] = '## 4. Quality Verdict';
         $lines[] = '';
@@ -89,6 +96,12 @@ class MarkdownExporter
             foreach ($doc['summaries']['key_findings'] as $f) {
                 $lines[] = '- ' . $f;
             }
+            $lines[] = '';
+        } elseif (!empty($doc['summaries']['findings_note'])) {
+            // Honest empty beats a redundant fill (FR-4.3).
+            $lines[] = '## 7. Key Findings';
+            $lines[] = '';
+            $lines[] = '_' . $doc['summaries']['findings_note'] . '_';
             $lines[] = '';
         }
         if (!empty($doc['keyphrases'])) {

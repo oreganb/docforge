@@ -9,3 +9,6 @@ web/docforge/storage/logs/*
 !web/docforge/storage/uploads-tmp/.gitkeep
 !web/docforge/storage/reports/.gitkeep
 !web/docforge/storage/logs/.gitkeep
+
+# Word temp lock files
+~$*

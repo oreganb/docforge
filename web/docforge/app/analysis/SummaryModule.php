@@ -19,6 +19,13 @@ class SummaryModule extends AbstractModule
     /** A document is "list-dominant" when most blocks are bullet items. */
     const LIST_DOMINANT = 0.5;
 
+    /**
+     * A sentence carries a genuine finding when it has real quantitative signal
+     * (a percentage or a multi-digit quantity) or a conclusive verb. Single
+     * digits (e.g. "Grade 7", "Admin II") are labels, not findings.
+     */
+    const FINDING_SIGNAL = '/%|\d{2,}|\b(therefore|thus|conclude[ds]?|concluded|significant(ly)?|increase[ds]?|decrease[ds]?|reduced|improved)\b/i';
+
     public function analyse(array $ir)
     {
         // List-dominant documents (competency frameworks, checklists, spec
@@ -58,7 +65,7 @@ class SummaryModule extends AbstractModule
         $short = $this->trimWords(implode(' ', $shortParts), 150);
         $extended = $this->trimWords(implode(' ', $ranked), 500);
         foreach ($shortParts as $sentence) {
-            if (preg_match('/\d|%|therefore|thus|conclude|significant/i', $sentence)) {
+            if (preg_match(self::FINDING_SIGNAL, $sentence)) {
                 $findings[] = $sentence;
             }
         }
@@ -67,11 +74,15 @@ class SummaryModule extends AbstractModule
             $short = $this->trimWords($sentences[0], 150);
         }
 
+        $findings = array_slice($findings, 0, 5);
         return array(
             'summaries' => array(
                 'short' => $short,
                 'extended' => $extended,
-                'key_findings' => array_slice($findings, 0, 5),
+                'key_findings' => $findings,
+                'findings_note' => empty($findings)
+                    ? 'No quantitative or conclusive findings detected.'
+                    : '',
             ),
         );
     }
@@ -88,14 +99,52 @@ class SummaryModule extends AbstractModule
         $body = 'Defines ' . $this->numberWord($n) . ' sections: ' . $joined . '.';
         $short = trim(($lead !== '' ? $lead . ' ' : '') . $body);
 
+        // Key Findings must not simply echo the Contents tree. Only surface
+        // genuinely quantitative/conclusive sentences from the body; if a
+        // list-type document has none, say so honestly (FR-4.3).
+        $findings = $this->extractFindings($ir);
+
         return array(
             'summaries' => array(
                 'short' => $this->trimWords($short, 150),
                 'extended' => $this->trimWords($short, 500),
-                'key_findings' => array_slice($headings, 0, 6),
+                'key_findings' => $findings,
+                'findings_note' => empty($findings)
+                    ? 'No quantitative or conclusive findings detected (list-type document).'
+                    : '',
                 'strategy' => 'structure-templated',
             ),
         );
+    }
+
+    /**
+     * Scan body blocks (lists + paragraphs, not headings) for sentences that
+     * carry quantitative or conclusive signal. Returns up to five, or an empty
+     * array when the document is purely descriptive.
+     *
+     * @return array<int,string>
+     */
+    private function extractFindings(array $ir)
+    {
+        if (empty($ir['blocks']) || !is_array($ir['blocks'])) {
+            return array();
+        }
+        $findings = array();
+        foreach ($ir['blocks'] as $block) {
+            $type = isset($block['type']) ? $block['type'] : '';
+            if ($type !== 'list' && $type !== 'paragraph') {
+                continue;
+            }
+            foreach ($this->sentences((string) $block['text']) as $sentence) {
+                if (preg_match(self::FINDING_SIGNAL, $sentence)) {
+                    $findings[] = trim($sentence);
+                    if (count($findings) >= 5) {
+                        return $findings;
+                    }
+                }
+            }
+        }
+        return $findings;
     }
 
     /** First sentence of the first paragraph block (document lead-in), if any. */
