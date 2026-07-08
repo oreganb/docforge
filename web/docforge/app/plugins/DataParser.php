@@ -2,9 +2,6 @@
 
 namespace DocForge\Plugins;
 
-use PhpOffice\PhpSpreadsheet\IOFactory;
-use PhpOffice\PhpSpreadsheet\Reader\IReadFilter;
-
 /**
  * Forge Data — dataset parser (CSV / TSV / XLSX / JSON records).
  *
@@ -152,49 +149,34 @@ class DataParser extends AbstractParser
     }
 
     /**
-     * Read a spreadsheet with the read-only, data-only, row-capped reader.
+     * Read an .xlsx natively via ZipArchive + XMLReader.
+     *
+     * XLSX is a zip of XML parts; reading it directly keeps DocForge on plain
+     * PHP 7.3 (PhpSpreadsheet requires 7.4+) with no extra dependency, and the
+     * worksheet is streamed so a large sheet never loads wholesale.
      *
      * @return array{columns:array<int,string>,rows:array<int,array<int,string>>,row_count:int,truncated:bool}
      */
     private function readSpreadsheet($filePath)
     {
-        $reader = IOFactory::createReaderForFile($filePath);
-        if (method_exists($reader, 'setReadDataOnly')) {
-            $reader->setReadDataOnly(true);
+        if (!class_exists('\ZipArchive')) {
+            throw new \RuntimeException('Reading .xlsx requires the PHP zip extension.');
         }
-        // Cap rows read at the source so a huge sheet never fully materialises.
-        $cap = self::ROW_CAP;
-        if (method_exists($reader, 'setReadFilter')) {
-            $reader->setReadFilter(new class($cap + 1) implements IReadFilter {
-                private $max;
-                public function __construct($max)
-                {
-                    $this->max = $max;
-                }
-                public function readCell($column, $row, $worksheetName = '')
-                {
-                    return $row <= $this->max;
-                }
-            });
-        }
-        $spreadsheet = $reader->load($filePath);
-        $sheet = $spreadsheet->getActiveSheet();
+        $shared = $this->readSharedStrings($filePath);
+        $sheetPath = $this->firstSheetPath($filePath);
 
+        $reader = new \XMLReader();
+        if (!@$reader->open('zip://' . $filePath . '#' . $sheetPath)) {
+            throw new \RuntimeException('Could not read the spreadsheet worksheet.');
+        }
         $columns = array();
         $rows = array();
         $rowCount = 0;
-        foreach ($sheet->getRowIterator() as $row) {
-            $cells = array();
-            $cellIt = $row->getCellIterator();
-            $cellIt->setIterateOnlyExistingCells(false);
-            $col = 0;
-            foreach ($cellIt as $cell) {
-                if ($col >= self::COL_CAP) {
-                    break;
-                }
-                $cells[] = (string) $cell->getValue();
-                $col++;
+        while ($reader->read()) {
+            if ($reader->nodeType !== \XMLReader::ELEMENT || $reader->name !== 'row') {
+                continue;
             }
+            $cells = $this->parseSheetRow($reader->readOuterXml(), $shared);
             if ($this->rowIsEmpty($cells)) {
                 continue;
             }
@@ -207,14 +189,128 @@ class DataParser extends AbstractParser
                 $rows[] = $this->normaliseRow($cells, count($columns));
             }
         }
-        $spreadsheet->disconnectWorksheets();
-        unset($spreadsheet);
+        $reader->close();
         return array(
             'columns' => $columns,
             'rows' => $rows,
             'row_count' => $rowCount,
             'truncated' => $rowCount > count($rows),
         );
+    }
+
+    /**
+     * Load the shared-strings table (index → text). Rich-text runs are flattened.
+     * @return array<int,string>
+     */
+    private function readSharedStrings($filePath)
+    {
+        $strings = array();
+        $reader = new \XMLReader();
+        if (!@$reader->open('zip://' . $filePath . '#xl/sharedStrings.xml')) {
+            return $strings; // a sheet may store all values inline
+        }
+        while ($reader->read()) {
+            if ($reader->nodeType === \XMLReader::ELEMENT && $reader->name === 'si') {
+                $strings[] = $this->allText($reader->readOuterXml());
+            }
+        }
+        $reader->close();
+        return $strings;
+    }
+
+    /** Locate the lowest-numbered worksheet part inside the zip. */
+    private function firstSheetPath($filePath)
+    {
+        $zip = new \ZipArchive();
+        if ($zip->open($filePath) !== true) {
+            throw new \RuntimeException('Could not open the spreadsheet.');
+        }
+        $best = null;
+        $bestNum = PHP_INT_MAX;
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $name = $zip->getNameIndex($i);
+            if (preg_match('#^xl/worksheets/sheet(\d+)\.xml$#', $name, $m) && (int) $m[1] < $bestNum) {
+                $bestNum = (int) $m[1];
+                $best = $name;
+            }
+        }
+        $zip->close();
+        return $best !== null ? $best : 'xl/worksheets/sheet1.xml';
+    }
+
+    /**
+     * Parse one <row> fragment into a positional cell array (gaps filled).
+     * @param array<int,string> $shared
+     * @return array<int,string>
+     */
+    private function parseSheetRow($rowXml, array $shared)
+    {
+        $sx = @simplexml_load_string($this->stripNs($rowXml));
+        if ($sx === false) {
+            return array();
+        }
+        $cells = array();
+        foreach ($sx->c as $c) {
+            $ref = (string) $c['r'];
+            $type = (string) $c['t'];
+            $col = $ref !== '' ? $this->colIndex($ref) : count($cells);
+            if ($type === 's') {
+                $idx = (int) $c->v;
+                $val = isset($shared[$idx]) ? $shared[$idx] : '';
+            } elseif ($type === 'inlineStr') {
+                $val = $this->allText($c->asXML());
+            } else {
+                $val = isset($c->v) ? (string) $c->v : '';
+            }
+            if ($col < self::COL_CAP) {
+                $cells[$col] = $val;
+            }
+        }
+        if (empty($cells)) {
+            return array();
+        }
+        $max = max(array_keys($cells));
+        $out = array();
+        for ($i = 0; $i <= $max; $i++) {
+            $out[] = isset($cells[$i]) ? $cells[$i] : '';
+        }
+        return $out;
+    }
+
+    /** Concatenate every <t> text node inside an XML fragment. */
+    private function allText($xml)
+    {
+        $sx = @simplexml_load_string($this->stripNs($xml));
+        if ($sx === false) {
+            return '';
+        }
+        $text = '';
+        foreach ($sx->xpath('//t') as $t) {
+            $text .= (string) $t;
+        }
+        return $text;
+    }
+
+    /** Strip namespace declarations/prefixes so local names parse cleanly. */
+    private function stripNs($xml)
+    {
+        $xml = preg_replace('/xmlns(:\w+)?\s*=\s*"[^"]*"/', '', (string) $xml);
+        return preg_replace('/<(\/?)[A-Za-z0-9]+:/', '<$1', $xml);
+    }
+
+    /** Spreadsheet cell reference ("AB12") → 0-based column index. */
+    private function colIndex($ref)
+    {
+        if (!preg_match('/^([A-Z]+)/i', $ref, $m)) {
+            return 0;
+        }
+        $letters = strtoupper($m[1]);
+        $n = 0;
+        $len = strlen($letters);
+        for ($i = 0; $i < $len; $i++) {
+            $n = $n * 26 + (ord($letters[$i]) - 64);
+        }
+        return $n - 1;
     }
 
     /**
