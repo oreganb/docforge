@@ -62,17 +62,25 @@ class ParserRegistry
         return $ir;
     }
 
-    /** Convert a string to valid UTF-8, replacing/removing invalid byte sequences. */
+    /** Convert a string to valid, storable UTF-8: fix encoding, drop invalid
+     *  byte sequences and control characters that utf8mb4 columns reject. */
     private static function toUtf8($s)
     {
-        if (!is_string($s) || $s === '' || mb_check_encoding($s, 'UTF-8')) {
+        if (!is_string($s) || $s === '') {
             return $s;
         }
-        // The bytes are almost always Windows-1252 (a superset of Latin-1);
-        // convert the whole string, then drop anything still invalid.
-        $enc = mb_detect_encoding($s, array('UTF-8', 'Windows-1252', 'ISO-8859-1'), true);
-        $s = mb_convert_encoding($s, 'UTF-8', $enc && $enc !== 'UTF-8' ? $enc : 'Windows-1252');
+        // If not valid UTF-8, assume Windows-1252 (superset of Latin-1).
+        if (!mb_check_encoding($s, 'UTF-8')) {
+            $enc = mb_detect_encoding($s, array('UTF-8', 'Windows-1252', 'ISO-8859-1'), true);
+            $s = mb_convert_encoding($s, 'UTF-8', $enc && $enc !== 'UTF-8' ? $enc : 'Windows-1252');
+        }
+        // Always drop any residual invalid sequences.
         $clean = @iconv('UTF-8', 'UTF-8//IGNORE', $s);
-        return $clean === false ? $s : $clean;
+        if ($clean !== false) {
+            $s = $clean;
+        }
+        // Strip control characters (C0 + C1 + DEL), keeping tab/newline/CR.
+        $s = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F\x{0080}-\x{009F}]/u', '', $s);
+        return $s === null ? '' : $s;
     }
 }

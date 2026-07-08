@@ -45,14 +45,48 @@ class PdfParser extends AbstractParser
 
     private function extractText($filePath)
     {
+        // 1. pdftotext (best layout) when shell access is available.
         $escaped = escapeshellarg($filePath);
         if ($this->commandExists('pdftotext')) {
-            $out = shell_exec('pdftotext -layout ' . $escaped . ' - 2>/dev/null');
-            if (is_string($out) && trim($out) !== '') {
+            $out = @shell_exec('pdftotext -layout ' . $escaped . ' - 2>/dev/null');
+            if (is_string($out) && $this->isReadable($out)) {
                 return $out;
             }
         }
-        return $this->extractTextPhp($filePath);
+
+        // 2. smalot/pdfparser — pure PHP, decodes compressed (FlateDecode)
+        //    streams that the crude regex fallback cannot handle.
+        try {
+            if (class_exists('\\Smalot\\PdfParser\\Parser')) {
+                $parser = new \Smalot\PdfParser\Parser();
+                $pdf = $parser->parseFile($filePath);
+                $text = $pdf->getText();
+                if (is_string($text) && $this->isReadable($text)) {
+                    return $text;
+                }
+            }
+        } catch (\Throwable $e) {
+            // fall through to crude extraction
+        }
+
+        // 3. Last resort: crude literal-string scan.
+        $out = $this->extractTextPhp($filePath);
+        return $this->isReadable($out) ? $out : '';
+    }
+
+    /** Heuristic: is this extracted text real prose rather than binary garbage? */
+    private function isReadable($text)
+    {
+        if (!is_string($text)) {
+            return false;
+        }
+        $trimmed = trim($text);
+        if (strlen($trimmed) < 20) {
+            return false;
+        }
+        // Ratio of printable ASCII + common whitespace to total bytes.
+        $printable = preg_match_all('/[\x09\x0A\x0D\x20-\x7E]/', $trimmed);
+        return $printable / max(1, strlen($trimmed)) >= 0.7;
     }
 
     private function extractTextPhp($filePath)
