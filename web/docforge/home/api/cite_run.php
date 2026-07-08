@@ -11,6 +11,7 @@ require_once dirname(__DIR__) . '/app/lib/Parsedown.php';
 use DocForge\Core\ApiResponse;
 use DocForge\Core\Csrf;
 use DocForge\Core\CiteProcessor;
+use DocForge\Core\CiteHighlighter;
 use DocForge\Core\FileValidator;
 
 @ini_set('memory_limit', '512M');
@@ -112,7 +113,7 @@ try {
 
     $parsedown = new Parsedown();
     $parsedown->setSafeMode(true);
-    $html = $parsedown->text($body);
+    $html = CiteHighlighter::highlightHtml($parsedown->text($body));
 
     $refNames = array();
     foreach ($references as $r) {

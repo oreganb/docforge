@@ -451,6 +451,45 @@ a:hover {
 .df-cite-report {
   text-align: left;
 }
+
+/* Forge Cite score tiers */
+.df-cite-tier {
+  display: inline-block;
+  padding: 0.12em 0.4em;
+  border-radius: 4px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.df-cite-tier-great {
+  background: color-mix(in srgb, #22c55e 22%, transparent);
+  color: #15803d;
+}
+.df-cite-tier-okay {
+  background: color-mix(in srgb, #fb923c 22%, transparent);
+  color: #c2410c;
+}
+.df-cite-tier-poor {
+  background: color-mix(in srgb, #f87171 20%, transparent);
+  color: #b91c1c;
+}
+.df-cite-tier-none {
+  display: inline-block;
+  padding: 0.12em 0.4em;
+  font-size: 0.8rem;
+  color: var(--df-slate);
+  opacity: 0.85;
+}
+.df-cite-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  margin-bottom: 0.85rem;
+  font-size: 0.78rem;
+}
+.report-body .df-cite-tier {
+  font-weight: 650;
+}
+
 .df-pill-active {
   border-color: var(--df-forge);
   background: color-mix(in srgb, var(--df-forge) 8%, var(--df-surface));

@@ -75,6 +75,12 @@ require __DIR__ . '/includes/header.php';
       <div class="df-cite-results-head">
         <h2 class="df-cite-results-title" id="citeResultTitle"></h2>
         <p class="df-cite-results-meta" id="citeResultMeta"></p>
+        <div class="df-cite-legend" aria-label="Score colour key">
+          <span class="df-cite-tier df-cite-tier-great">≥ 0.85 Great</span>
+          <span class="df-cite-tier df-cite-tier-okay">0.75–0.84 Okay</span>
+          <span class="df-cite-tier df-cite-tier-poor">0.66–0.74 Poor</span>
+          <span class="df-cite-tier-none">≤ 0.65 No highlight</span>
+        </div>
         <div class="df-cite-results-actions">
           <button type="button" class="btn btn-outline-ink btn-sm" id="citeDownloadMd">Download .md</button>
           <button type="button" class="btn btn-link btn-sm" id="citeReset">Analyse another</button>
