@@ -65,3 +65,12 @@ CREATE TABLE IF NOT EXISTS df_report_references (
   url TEXT NULL,
   INDEX idx_report (report_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS df_redaction_maps (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  report_id INT NOT NULL,
+  mode ENUM('mask','token') NOT NULL,
+  map_json MEDIUMBLOB NOT NULL,
+  created_at DATETIME NOT NULL,
+  INDEX idx_report (report_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

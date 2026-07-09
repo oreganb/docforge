@@ -39,6 +39,10 @@ require __DIR__ . '/includes/header.php';
           <i class="bi bi-journal-check" aria-hidden="true"></i>
           Forge Cite
         </a>
+        <a href="docforge_redact.php" class="df-pill">
+          <i class="bi bi-shield-lock" aria-hidden="true"></i>
+          Forge Redact
+        </a>
         <a href="library.php" class="df-pill">
           <i class="bi bi-collection" aria-hidden="true"></i>
           Library

@@ -4,6 +4,7 @@
     <nav class="df-footer-links" aria-label="Footer">
       <a href="about.php">About</a>
       <a href="docforge_cite.php">Forge Cite</a>
+      <a href="docforge_redact.php">Forge Redact</a>
       <a href="library.php">Library</a>
     </nav>
   </div>
