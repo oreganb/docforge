@@ -26,6 +26,15 @@ class RedactionReportExporter
         $lines[] = '# ' . (isset($report['title']) ? $report['title'] : 'Redacted document');
         $lines[] = '';
         $lines[] = '_PII removed using Forge Redact (`' . $mode . '` mode). Original upload was not stored._';
+        if (!empty($report['ocr'])) {
+            $ocr = $report['ocr'];
+            $where = !empty($ocr['client']) ? ' in your browser' : ' on the server';
+            $note = 'Text was extracted via OCR' . $where . ' (' . (int) $ocr['pages_ocrd'] . ' page(s)';
+            if (!empty($ocr['truncated'])) {
+                $note .= '; document may be truncated to the OCR page limit';
+            }
+            $lines[] = '_' . $note . '). Review redactions carefully — OCR can mis-read characters._';
+        }
         $lines[] = '';
 
         $lines[] = '## Redaction summary';

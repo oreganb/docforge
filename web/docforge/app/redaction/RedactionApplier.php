@@ -38,6 +38,43 @@ class RedactionApplier
         return $text;
     }
 
+    /**
+     * Replace every whole-word occurrence of each detected surface in the text.
+     * Catches repeats the span pass missed (e.g. a name used many times).
+     *
+     * @param array<int,array<string,mixed>> $spans
+     */
+    public function applyAllOccurrences($text, array $spans)
+    {
+        if ($text === '' || empty($spans)) {
+            return $text;
+        }
+        $unique = array();
+        foreach ($spans as $s) {
+            if (empty($s['surface'])) {
+                continue;
+            }
+            $key = mb_strtolower($s['surface']);
+            if (!isset($unique[$key]) || mb_strlen($s['surface']) > mb_strlen($unique[$key]['surface'])) {
+                $unique[$key] = $s;
+            }
+        }
+        $list = array_values($unique);
+        usort($list, function ($a, $b) {
+            return mb_strlen($b['surface']) - mb_strlen($a['surface']);
+        });
+        foreach ($list as $s) {
+            $replacement = $this->tokens->replace($s['category'], $s['surface']);
+            $quoted = preg_quote($s['surface'], '/');
+            $text = preg_replace(
+                '/(?<![\p{L}\p{N}])' . $quoted . '(?![\p{L}\p{N}])/iu',
+                $replacement,
+                $text
+            );
+        }
+        return $text;
+    }
+
     /** @return array<string,string> token => surface (for re-identification) */
     public function getMap()
     {

@@ -22,7 +22,7 @@ require __DIR__ . '/includes/header.php';
     <div id="redact-idle">
       <div class="df-drop" id="dropDoc" tabindex="0" role="button" aria-label="Upload document to redact">
         <i class="bi bi-shield-lock df-drop-icon" aria-hidden="true"></i>
-        <p class="df-drop-label" id="docText">Drag &amp; drop a document, or click to browse<br><span class="df-drop-formats">PDF, DOCX, Markdown, or plain text</span></p>
+        <p class="df-drop-label" id="docText">Drag &amp; drop a document, or click to browse<br><span class="df-drop-formats">PDF (scans are OCR&rsquo;d in your browser), DOCX, Markdown, or plain text</span></p>
         <div class="df-file d-none" id="docChip">
           <i class="bi bi-file-earmark-text"></i>
           <span id="docName"></span>
@@ -67,7 +67,7 @@ require __DIR__ . '/includes/header.php';
 
     <div id="redact-processing" class="d-none" aria-live="polite">
       <div class="df-progress"><div class="bar" style="width:45%"></div></div>
-      <p class="df-status">Detecting and redacting identifying information…</p>
+      <p class="df-status" id="redactStatus">Detecting and redacting identifying information…</p>
     </div>
 
     <div id="redact-results" class="d-none">
@@ -93,6 +93,12 @@ require __DIR__ . '/includes/header.php';
 </main>
 
 <input type="hidden" id="csrfToken" value="<?php echo htmlspecialchars($csrfToken); ?>">
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+</script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+<script src="<?php echo $assetBase; ?>js/redact-ocr.js"></script>
 <?php
 $pageScript = 'redact.js';
 require __DIR__ . '/includes/footer.php';

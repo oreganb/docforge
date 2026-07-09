@@ -23,6 +23,13 @@ $config = array(
         'library_per_page' => 20,
         'upload_sweep_seconds' => 3600, // FR-9 sweeper
     ),
+    // Interim scanned-PDF OCR (Phase 3 preview) — requires pdftoppm + tesseract on the server.
+    'pdf_ocr' => array(
+        'enabled' => true,
+        'max_pages' => 25,
+        'dpi' => 150,
+        'lang' => 'eng',
+    ),
     'app' => array(
         'base_path' => '/web/docforge/home',
         'knowledge_layer_version' => '1.0',

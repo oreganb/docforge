@@ -18,10 +18,18 @@ class PdfParser extends AbstractParser
     public function extract($filePath)
     {
         $text = $this->extractText($filePath);
+        $ocrMeta = null;
         if ($text === '') {
-            throw new \RuntimeException(
-                'This PDF has no extractable text layer. Scanned PDF support arrives in Phase 3.'
-            );
+            $ocr = $this->ocrExtractor();
+            if ($ocr->isAvailable()) {
+                $pageCount = $this->discoverPageCount($filePath);
+                $ocrMeta = $ocr->extract($filePath, $pageCount);
+                $text = $ocrMeta['text'];
+                $this->pageCount = (int) $ocrMeta['page_count'];
+            }
+        }
+        if ($text === '') {
+            throw new \RuntimeException($this->scannedPdfMessage());
         }
         $blocks = array();
         $paragraphs = preg_split('/\n\s*\n/', $text);
@@ -40,12 +48,21 @@ class PdfParser extends AbstractParser
         $pageCount = $this->pageCount > 0
             ? $this->pageCount
             : max(1, (int) preg_match_all('/\f/', $text) + 1);
-        return array(
+        $out = array(
             'blocks' => $blocks,
             'full_text' => $text,
             'page_count' => $pageCount,
             'meta_title' => $this->metaTitle,
         );
+        if ($ocrMeta !== null) {
+            $out['extraction'] = 'ocr';
+            $out['ocr'] = array(
+                'pages_ocrd' => (int) $ocrMeta['pages_ocrd'],
+                'truncated' => !empty($ocrMeta['truncated']),
+                'dpi' => (int) $this->loadOcrConfig()['dpi'],
+            );
+        }
+        return $out;
     }
 
     public function metadata($filePath)
@@ -152,5 +169,67 @@ class PdfParser extends AbstractParser
     {
         $which = shell_exec('command -v ' . escapeshellarg($cmd) . ' 2>/dev/null');
         return is_string($which) && trim($which) !== '';
+    }
+
+    /** @return PdfOcrExtractor */
+    private function ocrExtractor()
+    {
+        static $extractor = null;
+        if ($extractor === null) {
+            $extractor = new PdfOcrExtractor($this->loadOcrConfig());
+        }
+        return $extractor;
+    }
+
+    /** @return array<string,mixed> */
+    private function loadOcrConfig()
+    {
+        static $cfg = null;
+        if ($cfg !== null) {
+            return $cfg;
+        }
+        $path = dirname(__DIR__) . '/config/config.php';
+        $full = is_file($path) ? require $path : array();
+        $cfg = isset($full['pdf_ocr']) && is_array($full['pdf_ocr']) ? $full['pdf_ocr'] : array();
+        return $cfg;
+    }
+
+    private function discoverPageCount($filePath)
+    {
+        if ($this->pageCount > 0) {
+            return $this->pageCount;
+        }
+        $escaped = escapeshellarg($filePath);
+        if ($this->commandExists('pdfinfo')) {
+            $out = @shell_exec('pdfinfo ' . $escaped . ' 2>/dev/null');
+            if (is_string($out) && preg_match('/^Pages:\s+(\d+)/m', $out, $m)) {
+                return (int) $m[1];
+            }
+        }
+        try {
+            if (class_exists('\\Smalot\\PdfParser\\Parser')) {
+                $parser = class_exists('\\Smalot\\PdfParser\\Config')
+                    ? new \Smalot\PdfParser\Parser(array(), $this->pdfConfig())
+                    : new \Smalot\PdfParser\Parser();
+                $pdf = $parser->parseFile($filePath);
+                $pages = $pdf->getPages();
+                if (is_array($pages) && count($pages) > 0) {
+                    return count($pages);
+                }
+            }
+        } catch (\Throwable $e) {
+            // unknown page count — OCR will cap at max_pages
+        }
+        return 0;
+    }
+
+    private function scannedPdfMessage()
+    {
+        $max = (int) $this->ocrExtractor()->maxPages();
+        return 'This PDF has no selectable text — it appears to be a scan or image-only file. '
+            . 'Forge Redact can only process it if the server has OCR installed (Tesseract + Poppler). '
+            . 'Until then, run OCR locally (Preview, Acrobat, or OCRmyPDF) and re-upload, or paste the '
+            . 'content into a .docx or .txt file. When OCR is available here, up to '
+            . number_format($max) . ' pages per run are supported.';
     }
 }

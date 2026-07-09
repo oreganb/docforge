@@ -25,6 +25,11 @@
     failed.classList.toggle('d-none', id !== 'failed');
   }
 
+  function setStatus(msg) {
+    var el = document.getElementById('redactStatus');
+    if (el) el.textContent = msg;
+  }
+
   function mode() {
     var el = document.querySelector('input[name="redactMode"]:checked');
     return el ? el.value : 'token';
@@ -96,37 +101,94 @@
     show('idle');
   }
 
-  runBtn.addEventListener('click', function () {
-    if (!docFile) return;
-    show('processing');
-
+  function buildFormBody(prepared) {
     var body = new FormData();
     body.append('csrf_token', csrf.value);
-    body.append('document', docFile);
     body.append('mode', mode());
     body.append('retain_map', retainMap && retainMap.checked && mode() === 'token' ? '1' : '0');
+    if (prepared && prepared.useClient) {
+      body.append('client_text', prepared.text);
+      body.append('source_name', docFile.name);
+      body.append('client_ocr', '1');
+      body.append('ocr_pages', String(prepared.ocr.pages_ocrd || 0));
+      if (prepared.ocr.truncated) {
+        body.append('ocr_truncated', '1');
+      }
+    } else {
+      body.append('document', docFile);
+    }
+    return body;
+  }
 
-    fetch('api/redact_run.php', { method: 'POST', body: body })
+  function submitRedaction(prepared) {
+    setStatus('Detecting and redacting identifying information…');
+    return fetch('api/redact_run.php', { method: 'POST', body: buildFormBody(prepared) })
       .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, body: j }; }); })
       .then(function (res) {
         if (!res.ok || !res.body || !res.body.ok) {
           throw new Error((res.body && res.body.error) || 'Redaction failed.');
         }
-        var b = res.body;
-        lastMarkdown = b.markdown || '';
-        lastMap = b.redaction_map || null;
-        document.getElementById('redactResultTitle').textContent = 'Redacted — ' + (b.title || b.source_name);
-        var total = b.stats && b.stats.total !== undefined ? b.stats.total : 0;
-        document.getElementById('redactResultMeta').textContent =
-          b.source_name + ' · ' + b.mode + ' mode · ' + total + ' item(s) redacted';
-        document.getElementById('redactReportHtml').innerHTML = b.html || '';
-        var mapBtn = document.getElementById('redactDownloadMap');
-        if (mapBtn) {
-          var hasMap = lastMap && Object.keys(lastMap).length > 0;
-          mapBtn.classList.toggle('d-none', !hasMap);
+        return res.body;
+      });
+  }
+
+  function showResults(b) {
+    lastMarkdown = b.markdown || '';
+    lastMap = b.redaction_map || null;
+    document.getElementById('redactResultTitle').textContent = 'Redacted — ' + (b.title || b.source_name);
+    var total = b.stats && b.stats.total !== undefined ? b.stats.total : 0;
+    document.getElementById('redactResultMeta').textContent =
+      b.source_name + ' · ' + b.mode + ' mode · ' + total + ' item(s) redacted';
+    document.getElementById('redactReportHtml').innerHTML = b.html || '';
+    var mapBtn = document.getElementById('redactDownloadMap');
+    if (mapBtn) {
+      var hasMap = lastMap && Object.keys(lastMap).length > 0;
+      mapBtn.classList.toggle('d-none', !hasMap);
+    }
+    show('results');
+    document.getElementById('redact-results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function isScannedPdfError(msg) {
+    return /no selectable text|scan|image-only|OCR installed/i.test(msg || '');
+  }
+
+  function prepareUpload() {
+    if (!window.DocForgeRedactOcr || !DocForgeRedactOcr.isPdf(docFile)) {
+      return Promise.resolve({ useClient: false });
+    }
+    return DocForgeRedactOcr.preparePdfText(docFile, setStatus);
+  }
+
+  runBtn.addEventListener('click', function () {
+    if (!docFile) return;
+    show('processing');
+    setStatus('Preparing document…');
+
+    var prepared = { useClient: false };
+    prepareUpload()
+      .then(function (p) {
+        prepared = p || prepared;
+        return submitRedaction(prepared);
+      })
+      .then(showResults)
+      .catch(function (err) {
+        var msg = err.message || 'Redaction failed.';
+        if (!prepared.useClient && window.DocForgeRedactOcr && DocForgeRedactOcr.isPdf(docFile) && isScannedPdfError(msg)) {
+          setStatus('Server could not read this scan — trying browser OCR…');
+          return DocForgeRedactOcr.ocrPdf(docFile, setStatus).then(function (ocr) {
+            if (!DocForgeRedactOcr.isReadable(ocr.text)) {
+              throw new Error('OCR could not read any text from this scan.');
+            }
+            prepared = {
+              useClient: true,
+              text: ocr.text,
+              ocr: { pages_ocrd: ocr.pages_ocrd, truncated: false, client: true }
+            };
+            return submitRedaction(prepared);
+          }).then(showResults);
         }
-        show('results');
-        document.getElementById('redact-results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        throw err;
       })
       .catch(function (err) {
         document.getElementById('redactFailMsg').textContent = err.message || 'Redaction failed.';

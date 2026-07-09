@@ -31,15 +31,21 @@ class RedactionEngine
 
         $allSpans = array();
         $fields = $this->collectTextFields($doc);
-        $redacted = $doc;
+        $fieldData = array();
 
         foreach ($fields as $ref => $text) {
             $fieldSpans = $detector->detect($text);
+            $fieldData[$ref] = array('text' => $text, 'spans' => $fieldSpans);
             foreach ($fieldSpans as $span) {
                 $span['field'] = $ref;
                 $allSpans[] = $span;
             }
-            $newText = $applier->apply($text, $fieldSpans);
+        }
+
+        $redacted = $doc;
+        foreach ($fieldData as $ref => $data) {
+            $newText = $applier->apply($data['text'], $data['spans']);
+            $newText = $applier->applyAllOccurrences($newText, $allSpans);
             $this->setField($redacted, $ref, $newText);
         }
 
@@ -59,6 +65,9 @@ class RedactionEngine
             'blocks' => isset($redacted['blocks']) ? $redacted['blocks'] : array(),
             'full_text' => isset($redacted['full_text']) ? $redacted['full_text'] : '',
         );
+        if (!empty($doc['ocr']) && is_array($doc['ocr'])) {
+            $report['ocr'] = $doc['ocr'];
+        }
 
         $exporter = new RedactionReportExporter();
         $markdown = $exporter->export($report);

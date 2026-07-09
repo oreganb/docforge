@@ -40,7 +40,8 @@ class RedactionScanner
         if ($needle === '' || mb_strlen($needle) < 3) {
             return false;
         }
-        return mb_stripos($haystack, $needle, 0, 'UTF-8') !== false;
+        $quoted = preg_quote($needle, '/');
+        return preg_match('/(?<![\p{L}\p{N}])' . $quoted . '(?![\p{L}\p{N}])/iu', $haystack) === 1;
     }
 
     private static function normalize($text)
